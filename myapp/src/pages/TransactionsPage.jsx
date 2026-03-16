@@ -6,13 +6,11 @@ import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import usePageLoad from "../hooks/usePageLoad";
-import { ArrowRightLeft, Search } from "lucide-react";
-import { useState } from "react";
+import { ArrowRightLeft, Search, ArrowDown } from "lucide-react";
+import { useState, useEffect } from "react";
 import { normalizeVariant } from "../utils/normalizeVariant";
 import { Skeleton } from "../components/ui/Skeleton";
-import { ArrowDown } from "lucide-react";
 import { getUserTransactions } from "../api/api";
-import { useEffect } from "react";
 
 
 // ─────────────────────────────────────────────────────────────
@@ -38,12 +36,12 @@ export default function TransactionsPage() {
     }, []);
 
     const filtered = TX_DATA.filter(tx =>
-        (filter === "All" || normalizeVariant(tx.status) === filter.toLowerCase()) &&
+        (filter === "All" || tx.status === filter.toLowerCase()) &&
         (
-          (tx.id && tx.id.toLowerCase().includes(search.toLowerCase())) ||
-          (tx.mode && tx.mode.toLowerCase().includes(search.toLowerCase()))
+            (tx.id && tx.id.toLowerCase().includes(search.toLowerCase())) ||
+            (tx.mode && tx.mode.toLowerCase().includes(search.toLowerCase()))
         )
-      );
+    );
 
     if (loading) return (
         <div className="p-6 space-y-5">
@@ -93,16 +91,17 @@ export default function TransactionsPage() {
                             {filtered.map((tx) => (
                                 <tr key={tx.id} className={cls("border-b transition-colors cursor-pointer", dark ? "border-white/5 hover:bg-slate-800/40" : "border-black/5 hover:bg-slate-50")}>
                                     <td className="px-5 py-4"><span className="text-[13px] font-mono text-indigo-500 font-bold">{tx.id}</span></td>
-                                    <td className="px-5 py-4"><span className={cls("text-[15px] font-semibold tracking-tight", T.text(dark))}>{tx.receiver_id}</span></td>
+                                    <td className="px-5 py-4"><span className={cls("text-[15px] font-semibold tracking-tight", T.text(dark))}>{tx.receiver_name || tx.receiver_id}</span></td>
                                     <td className="px-5 py-4">
-  <span className={cls("text-[13px] font-medium", T.muted(dark))}>
-    Token Transfer
-  </span>
-</td>                                    <td className="px-5 py-4">
-  <span className={cls("text-[15px] font-bold tracking-tight", T.text(dark))}>
-    {tx.token_id}
-  </span>
-</td>
+                                        <span className={cls("text-[13px] font-medium", T.muted(dark))}>
+                                            Token Transfer
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-4">
+                                        <span className={cls("text-[15px] font-bold tracking-tight", T.text(dark))}>
+                                            ₹{tx.amount}
+                                        </span>
+                                    </td>
                                     <td className="px-5 py-4"><Badge variant="default">{tx.mode}</Badge></td>
                                     <td className="px-5 py-4"><Badge variant={tx.status}>{tx.status.charAt(0).toUpperCase() + tx.status.slice(1).toLowerCase()}</Badge></td>
                                     <td className="px-5 py-4"><span className={cls("text-[13px] font-medium", T.subtle(dark))}>{new Date(tx.created_at).toLocaleString()}</span></td>

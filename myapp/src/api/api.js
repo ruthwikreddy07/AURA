@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8000/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 /*
 Centralized request helper
@@ -8,9 +8,11 @@ Handles:
 - error handling
 */
 async function request(endpoint, options = {}) {
+  const token = localStorage.getItem("auth_token");
   const res = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...(options.headers || {})
     },
     ...options
@@ -94,10 +96,22 @@ export const createPaymentSession = (data) =>
     body: JSON.stringify(data)
   });
 
+export const submitMotionProof = (data) =>
+  request("/payment-session/motion-proof", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
 
 /* =========================
    PAYMENT PACKET
 ========================= */
+
+export const encryptPacket = (data) =>
+  request("/payment-packet/encrypt", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
 
 export const submitPaymentPacket = (data) =>
   request("/payment-packet/submit", {

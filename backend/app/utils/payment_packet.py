@@ -1,7 +1,7 @@
 # app/utils/payment_packet.py
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.utils.packet_crypto import encrypt_payload
 
@@ -19,5 +19,5 @@ def build_payment_packet(session_id: str, session_key: str, token_payload: dict)
         "session_id": session_id,
         "nonce": encrypted["nonce"],
         "ciphertext": encrypted["ciphertext"],
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }

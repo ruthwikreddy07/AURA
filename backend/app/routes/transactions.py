@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -22,11 +23,14 @@ class TransactionResponse(BaseModel):
     id: str
     sender_id: str
     receiver_id: str
+    sender_name: Optional[str] = None
+    receiver_name: Optional[str] = None
     token_id: str
+    amount: Optional[float] = None
     mode: str
     risk_score: float
     status: str
-    txn_hash: str
+    txn_hash: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -64,17 +68,8 @@ def get_user_transactions(user_id: str, db: Session = Depends(get_db)):
         txns = transaction_service.get_user_transactions(db=db, user_id=user_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
     return [
-        TransactionResponse(
-            id=str(t.id),
-            sender_id=str(t.sender_id),
-            receiver_id=str(t.receiver_id),
-            token_id=str(t.token_id),
-            mode=t.mode,
-            risk_score=t.risk_score,
-            status=t.status,
-            txn_hash=t.txn_hash,
-            created_at=t.created_at,
-        )
-        for t in txns
+        TransactionResponse(**txn)
+        for txn in txns
     ]

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     REDIS_URL: str
     JWT_SECRET: str
     JWT_ALGORITHM: str = "RS256"
+    JWT_EXPIRY_MINUTES: int = 30
     TOKEN_PRIVATE_KEY_PATH: Path
     TOKEN_PUBLIC_KEY_PATH: Path
     DEBUG: bool = False

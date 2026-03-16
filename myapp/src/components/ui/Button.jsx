@@ -1,8 +1,5 @@
 import { cls } from "../../utils/cls";
 
-import { useTheme } from "../../context/ThemeContext";
-import { T } from "../../theme/themeTokens";
-
 const BTN_VARIANTS = {
     primary: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200/60 focus-visible:ring-indigo-500 active:scale-95 active:shadow-inner",
     secondary: "bg-white/80 backdrop-blur-md hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm focus-visible:ring-slate-300 active:scale-95 active:shadow-inner",

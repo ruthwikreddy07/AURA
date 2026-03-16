@@ -1,7 +1,8 @@
 import { useTheme } from "../context/ThemeContext";
 import { T } from "../theme/themeTokens";
 import { cls } from "../utils/cls";
-import { createPaymentSession, submitPaymentPacket } from "../api/api";
+import { createPaymentSession, submitMotionProof, encryptPacket } from "../api/api";
+import QRCode from "react-qr-code";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -23,10 +24,10 @@ export default function SendPage() {
   const [step, setStep] = useState("input"); // input | searching | confirm | progress | success
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [activeMode, setActiveMode] = useState("BLE");
+  const [activeMode, setActiveMode] = useState("QR"); // Defaulting to QR for Phase 2
 
   const [progressVal, setProgressVal] = useState(0);
-  const [session, setSession] = useState(null);
+  const [qrData, setQrData] = useState(null);
   const senderId = "00000000-0000-0000-0000-000000000001";
   const receiverId = "00000000-0000-0000-0000-000000000002";
 
@@ -62,7 +63,14 @@ export default function SendPage() {
   setProgressVal(0);
 
   try {
+    // 1. Submit Sender Motion Proof (Mocking actual motion detection)
+    await submitMotionProof({
+      session_id: session.session_id,
+      user_id: senderId,
+      motion_hash: "sender-motion-qr-ok"
+    });
 
+    // 2. Build explicit payment payload
     const payload = {
       sender_id: senderId,
       receiver_id: receiverId,
@@ -70,13 +78,26 @@ export default function SendPage() {
       risk_score: riskScore / 100
     };
 
-    const encryptedPacket = {
-  session_id: session.session_id,
-  nonce: btoa("nonce-demo"),
-  ciphertext: btoa(JSON.stringify(payload))
-};
+    // 3. Encrypt payload via secure backend
+    let encryptedResp;
+    if(activeMode === "QR") {
+       encryptedResp = await encryptPacket({
+        session_key: session.session_key,
+        payload: payload
+       });
 
-    await submitPaymentPacket(encryptedPacket);
+       // 4. Construct compact QR payload string for camera scanning
+       const qrPayload = JSON.stringify({
+         s: session.session_id,
+         n: encryptedResp.nonce,
+         c: encryptedResp.ciphertext
+       });
+
+       setQrData(qrPayload);
+       setStep("qr-display");
+       return; // QR stops here and waits for receiver to scan
+    }
+
 
   } catch (err) {
     console.error("Payment error", err);
@@ -94,7 +115,7 @@ export default function SendPage() {
   }, 120);
 
 };
-  const handleReset = () => { setStep("input"); setAmount(""); setNote(""); setProgressVal(0); };
+  const handleReset = () => { setStep("input"); setAmount(""); setNote(""); setProgressVal(0); setQrData(null); };
 
   if (loading) return <div className="p-6 space-y-5"><Skeleton className="h-64 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
 
@@ -253,7 +274,7 @@ export default function SendPage() {
               {[
                 { l: "Amount", v: `₹${amount}`, bold: true },
                 { l: "To", v: "Nearby Device (DEV-0042)" },
-                { l: "Channel", v: "BLE · Encrypted (AES-256)" },
+                { l: "Channel", v: `${activeMode} · Encrypted (AES-256)` },
                 { l: "Token", v: "TKN-7821" },
                 { l: "Note", v: note || "—" },
               ].map((row, i) => (
@@ -276,7 +297,33 @@ export default function SendPage() {
         </div>
       )}
 
-      {/* Step: Progress */}
+      {/* Step: QR Display (for QR mode) */}
+      {step === "qr-display" && (
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="p-8 max-w-sm w-full space-y-6 text-center" glow>
+             <p className={cls("font-bold text-[17px]", dark ? "text-slate-100" : "text-slate-900")}>
+               Scan to Receive ₹{amount}
+             </p>
+             <p className={cls("text-sm font-medium", dark ? "text-slate-400" : "text-slate-500")}>
+               Ask the receiver to scan this code
+             </p>
+             
+             {qrData && (
+                <div className="bg-white p-4 rounded-2xl inline-block mx-auto">
+                   <QRCode value={qrData} size={220} level="H" />
+                </div>
+             )}
+
+             <div className="mt-6 flex gap-3">
+               <Button variant="secondary" size="md" className="flex-1" onClick={() => setStep("input")}>Cancel</Button>
+               {/* Note: In a real app we would use WebSockets or long-polling here to detect when the receiver submitted the transaction. For this demo, clicking "Done" acts as manual acknowledgment */}
+               <Button variant="primary" size="md" className="flex-1" onClick={() => setStep("success")}>Done</Button>
+             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Step: Progress (Legacy BLE) */}
       {step === "progress" && (
         <div className="flex items-center justify-center min-h-[60vh]">
           <Card className="p-12 text-center max-w-sm w-full" glow>
@@ -299,7 +346,7 @@ export default function SendPage() {
             </div>
             <p className={cls("font-black text-[28px] tracking-tight", dark ? "text-slate-100" : "text-slate-900")}>₹{amount}</p>
             <p className="text-emerald-500 font-bold text-[17px] mt-1">Payment Sent</p>
-            <p className={cls("text-[13px] font-medium mt-2", dark ? "text-slate-400" : "text-slate-500")}>via BLE · Token TKN-7821 · {new Date().toLocaleTimeString()}</p>
+            <p className={cls("text-[13px] font-medium mt-2", dark ? "text-slate-400" : "text-slate-500")}>via {activeMode} · Token TKN-7821 · {new Date().toLocaleTimeString()}</p>
 
             <div className={cls("mt-6 p-4 rounded-2xl space-y-2 text-left", dark ? "bg-slate-800/50" : "bg-slate-50")}>
               {[

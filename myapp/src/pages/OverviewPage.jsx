@@ -72,9 +72,9 @@ const monthlyVolume =
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="Total Balance" value={`₹${totalBalance.toLocaleString()}`} sub="Across 3 wallets" icon={<Wallet className="w-5 h-5" />} color="indigo" trend={8.2} />
+        <KPICard label="Total Balance" value={`₹${totalBalance.toLocaleString()}`} sub={`Across ${wallets.length} wallets`} icon={<Wallet className="w-5 h-5" />} color="indigo" trend={8.2} />
         <KPICard label="Token Allocation" value="₹32,000" sub="68% utilized" icon={<Disc className="w-5 h-5" />} color="emerald" trend={3.1} />
-        <KPICard label="Pending Sync" value={`${pendingSync} txns`} sub="Last sync 4min ago" icon={<RefreshCw className="w-5 h-5" />} color="amber" trend={-2} />
+        <KPICard label="Pending Sync" value={`${pendingSync} txns`} sub="Waiting for settlement" icon={<RefreshCw className="w-5 h-5" />} color="amber" trend={-2} />
         <KPICard label="Monthly Volume" value={`₹${monthlyVolume.toLocaleString()}`} sub="Vs ₹7.2L last month" icon={<BarChart3 className="w-5 h-5" />} color="slate" trend={23.6} />
       </div>
 

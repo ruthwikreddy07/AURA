@@ -1,6 +1,4 @@
-# app/ai/risk_engine.py
-
-from datetime import datetime, timezone
+from datetime import datetime
 
 
 def evaluate_transaction(
@@ -9,44 +7,26 @@ def evaluate_transaction(
     timestamp: datetime,
 ) -> dict:
     """
-    SECURITY: simple risk evaluation engine.
-    Later this can be replaced with a ML model.
+    Stub risk engine. Returns a safe default until the ONNX model is wired in.
+    Decision values: "approve" | "review" | "block"
     """
+    risk_score: float = 0.05
 
-    risk_score = 0.0
+    if amount > 50000:
+        risk_score = 0.75
+    elif amount > 20000:
+        risk_score = 0.40
+    elif mode in ("SOUND", "LIGHT"):
+        risk_score = 0.20
 
-    # large transaction risk
-    if amount > 5000:
-        risk_score += 0.4
-
-    # very large transaction
-    if amount > 20000:
-        risk_score += 0.4
-
-    # night-time anomaly
-    hour = timestamp.astimezone(timezone.utc).hour
-    if hour >= 1 and hour <= 5:
-        risk_score += 0.2
-
-    # mode risk differences
-    if mode == "sound":
-        risk_score += 0.05
-    elif mode == "qr":
-        risk_score += 0.03
-    elif mode == "light":
-        risk_score += 0.01
-    elif mode == "ble":
-        risk_score += 0.02
-
-    # decision logic
-    if risk_score >= 0.85:
+    if risk_score >= 0.70:
         decision = "block"
-    elif risk_score >= 0.55:
+    elif risk_score >= 0.35:
         decision = "review"
     else:
-        decision = "allow"
+        decision = "approve"
 
     return {
-        "risk_score": round(risk_score, 3),
+        "risk_score": round(risk_score, 4),
         "decision": decision,
     }

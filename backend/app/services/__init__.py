@@ -6,3 +6,5 @@ from . import sync_service
 from . import risk_service
 from . import analytics_service
 from . import mode_service
+from . import payment_session_service
+from . import payment_packet_service

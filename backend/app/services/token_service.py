@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.token import Token
 from app.utils.token_generator import generate_signed_token
 
-from app.models.risk import RiskLog
+
 def issue_token(
     db: Session,
     wallet_id: str,

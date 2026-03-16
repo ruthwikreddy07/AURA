@@ -4,6 +4,8 @@ import { cls } from "../utils/cls";
 
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import { Scanner } from "@yudiel/react-qr-scanner";
+import { submitMotionProof, submitPaymentPacket } from "../api/api";
 
 import { ArrowDown, Inbox, CheckCircle2, RefreshCw, Loader2 } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
@@ -20,7 +22,7 @@ export default function ReceivePage() {
   const loading = usePageLoad();
   const [recvState, setRecvState] = useState("listening"); // listening | detecting | verifying | success
   const [countdown, setCountdown] = useState(60);
-  const [activeMode, setActiveMode] = useState("QR");
+  const [activeMode, setActiveMode] = useState("QR"); // Default to QR for Phase 2
 
   useEffect(() => {
     if (recvState !== "listening") return;
@@ -29,7 +31,45 @@ export default function ReceivePage() {
     return () => clearTimeout(t);
   }, [countdown, recvState]);
 
-  const simulateReceive = () => { setRecvState("detecting"); setTimeout(() => setRecvState("verifying"), 1400); setTimeout(() => setRecvState("success"), 2800); };
+  const simulateReceive = async () => {
+    // Left empty for now, as we're building the real QR scanner
+  };
+
+  const handleScan = async (result) => {
+    if (!result || !result[0] || !result[0].rawValue) return;
+    
+    // Determine if we've already started processing to prevent duplicate scans
+    if (recvState !== "listening") return;
+    setRecvState("detecting");
+
+    try {
+      // 1. Parse the packet from the QR code
+      const qrPayload = JSON.parse(result[0].rawValue);
+      const { s: sessionId, n: nonce, c: ciphertext } = qrPayload;
+
+      // 2. Submit Receiver Motion Proof
+      await submitMotionProof({
+        session_id: sessionId,
+        user_id: localStorage.getItem("user_id"),
+        motion_hash: "receiver-motion-qr-ok"
+      });
+
+      setRecvState("verifying");
+
+      // 3. Submit Packet for Backend Decryption & Settlement
+      await submitPaymentPacket({
+        session_id: sessionId,
+        nonce: nonce,
+        ciphertext: ciphertext
+      });
+
+      setRecvState("success");
+
+    } catch (e) {
+      console.error("Failed to process QR code", e);
+      setRecvState("listening"); // Reset on error
+    }
+  };
 
   if (loading) return <div className="p-6 grid lg:grid-cols-2 gap-5"><Skeleton className="h-72 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /></div>;
 
@@ -60,8 +100,27 @@ export default function ReceivePage() {
             <ModeBadge mode={activeMode} active />
           </div>
 
-          {/* QR code visual placeholder */}
-          {recvState === "listening" && (
+          {/* QR Scanner WebRTC Feed */}
+          {recvState === "listening" && activeMode === "QR" && (
+            <div className={cls("relative rounded-2xl overflow-hidden aspect-square max-w-[280px] mx-auto border-2", dark ? "border-indigo-500/30 bg-slate-800/60" : "border-indigo-200 bg-indigo-50/50")}>
+               <Scanner
+                  onScan={handleScan}
+                  formats={["qr_code"]}
+                  components={{ audio: false, finder: false }}
+                  styles={{ container: { width: "100%", height: "100%" } }}
+               />
+               
+              <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-xl pointer-events-none" />
+              {/* Corner markers */}
+              {["top-4 left-4", "top-4 right-4", "bottom-4 left-4", "bottom-4 right-4"].map((pos, i) => (
+                <div key={i} className={cls("absolute w-8 h-8 border-4 border-indigo-500 rounded-sm", pos,
+                  i === 0 ? "border-r-0 border-b-0" : i === 1 ? "border-l-0 border-b-0" : i === 2 ? "border-r-0 border-t-0" : "border-l-0 border-t-0")} />
+              ))}
+            </div>
+          )}
+
+          {/* Legacy Mock UI for BLE/NFC */}
+          {recvState === "listening" && activeMode !== "QR" && (
             <div className={cls("relative rounded-2xl overflow-hidden flex items-center justify-center aspect-square max-w-[240px] mx-auto border-2", dark ? "border-indigo-500/30 bg-slate-800/60" : "border-indigo-200 bg-indigo-50/50")}>
               {/* QR grid simulation */}
               <div className="absolute inset-4 grid grid-cols-7 gap-1 opacity-80">
@@ -117,8 +176,8 @@ export default function ReceivePage() {
             </div>
           </div>
 
-          {/* Demo trigger */}
-          {recvState === "listening" && (
+          {/* Demo trigger for non-camera modes */}
+          {recvState === "listening" && activeMode !== "QR" && (
             <Button variant="ghost" size="sm" className="mt-4 w-full" onClick={simulateReceive}>Simulate incoming payment →</Button>
           )}
         </Card>

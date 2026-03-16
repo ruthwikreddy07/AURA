@@ -1,6 +1,3 @@
-import React from "react";
-import { useTheme } from "../../context/ThemeContext";
-import { T } from "../../theme/themeTokens";
 export default function MiniLineChart({ data, color = "#4F46E5", gradId = "chartFill" }) {
     const max = Math.max(...data), min = Math.min(...data);
     const range = max - min || 1;

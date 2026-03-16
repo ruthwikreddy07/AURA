@@ -46,6 +46,9 @@ export default function AuthPage({ onLogin }) {
     if (user?.id) {
       localStorage.setItem("user_id", user.id);
     }
+    if (user?.access_token) {
+      localStorage.setItem("auth_token", user.access_token);
+    }
 
     navigate("/app/overview");
 
@@ -93,7 +96,7 @@ export default function AuthPage({ onLogin }) {
                   <label htmlFor="auth-name" className="text-sm font-medium text-slate-600">Full Name</label>
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><User className="w-4 h-4" /></span>
-                    <input id="auth-name" type="text" placeholder="Arjun Kumar" value={fields.name} onChange={set("name")}
+                    <input id="auth-name" type="text" autoComplete="name" placeholder="Arjun Kumar" value={fields.name} onChange={set("name")}
                       className="w-full border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-[15px] font-medium text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
                   </div>
                 </div>
@@ -103,7 +106,7 @@ export default function AuthPage({ onLogin }) {
                 <label htmlFor="auth-email" className="text-sm font-medium text-slate-600">Email</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Mail className="w-4 h-4" /></span>
-                  <input id="auth-email" type="email" placeholder="you@example.com" value={fields.email} onChange={set("email")} required
+                  <input id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" value={fields.email} onChange={set("email")} required
                     className="w-full border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-[15px] font-medium text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
                 </div>
               </div>
@@ -112,7 +115,7 @@ export default function AuthPage({ onLogin }) {
                 <label htmlFor="auth-password" className="text-sm font-medium text-slate-600">Password</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Lock className="w-4 h-4" /></span>
-                  <input id="auth-password" type="password" placeholder="••••••••" value={fields.password} onChange={set("password")} required
+                  <input id="auth-password" type="password" autoComplete="current-password" placeholder="••••••••" value={fields.password} onChange={set("password")} required
                     className="w-full border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-[15px] font-medium text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
                 </div>
               </div>
@@ -122,7 +125,7 @@ export default function AuthPage({ onLogin }) {
                   <label htmlFor="auth-confirm" className="text-sm font-medium text-slate-600">Confirm Password</label>
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Lock className="w-4 h-4" /></span>
-                    <input id="auth-confirm" type="password" placeholder="••••••••" value={fields.confirm} onChange={set("confirm")}
+                    <input id="auth-confirm" type="password" autoComplete="new-password" placeholder="••••••••" value={fields.confirm} onChange={set("confirm")}
                       className="w-full border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-[15px] font-medium text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
                   </div>
                 </div>

@@ -7,28 +7,32 @@ import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 import { Skeleton } from "../components/ui/Skeleton";
 import { PlusCircle, Disc } from "lucide-react";
-import { getWalletTokens } from "../api/api";
+import { getUserWallets, getWalletTokens } from "../api/api";
 import { useEffect, useState } from "react";
 
 export default function TokensPage() {
   const { dark } = useTheme();
   const loading = usePageLoad();
+  const [wallets, setWallets] = useState([]);
   const [tokens, setTokens] = useState([]);
   useEffect(() => {
-  const userId = localStorage.getItem("user_id");
+    const userId = localStorage.getItem("user_id");
+    if (!userId) return;
 
-  if (!userId) return;
-
-  getUserWallets(userId)
-    .then(data => {
-      setWallets(data);
-
-      if (data.length > 0) {
-        localStorage.setItem("wallet_id", data[0].wallet_id);
-      }
-    })
-    .catch(err => console.error(err));
-}, []);
+    getUserWallets(userId)
+      .then(data => {
+        setWallets(data);
+        if (data.length > 0) {
+          localStorage.setItem("wallet_id", data[0].id);
+          return getWalletTokens(data[0].id);
+        }
+        return [];
+      })
+      .then(tokenData => {
+        if (tokenData) setTokens(tokenData);
+      })
+      .catch(err => console.error(err));
+  }, []);
   const barCls = (s, u) => s === "failed" ? (dark ? "bg-slate-600" : "bg-slate-300") : u > 90 ? "bg-amber-400" : "bg-indigo-500";
 
   if (loading) return <div className="p-6 space-y-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
@@ -63,7 +67,7 @@ export default function TokensPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className={cls("text-[15px] font-semibold font-mono tracking-tight", T.text(dark))}>{tk.token_id}</p>
+                  <p className={cls("text-[15px] font-semibold font-mono tracking-tight", T.text(dark))}>{tk.id}</p>
                   <Badge variant={tk.status}>{tk.status === "active" ? "Active" : tk.status === "pending" ? "Expiring" : "Expired"}</Badge>
                 </div>
                 <div className="flex items-center gap-3 mt-2">
@@ -74,7 +78,9 @@ export default function TokensPage() {
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className={cls("text-[17px] font-bold tracking-tight", T.text(dark))}>₹{tk.token_value}</p>
+                <Badge variant="default">
+                  {tk.token_value}
+                </Badge>
                 <p className={cls("text-xs mt-1 font-medium", T.subtle(dark))}>Expires {tk.expiry}</p>
               </div>
             </div>

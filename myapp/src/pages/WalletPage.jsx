@@ -3,38 +3,36 @@ import { T } from "../theme/themeTokens";
 import { cls } from "../utils/cls";
 
 import { getUserWallets } from "../api/api";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 
-import { Wallet, ArrowUp, ArrowDown } from "lucide-react";
+import { Wallet, AlertTriangle, PlusCircle, ArrowUp, ArrowDown } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
-import { useState } from "react";
 import { Skeleton } from "../components/ui/Skeleton";
-import { AlertTriangle } from "lucide-react";
-import { PlusCircle } from "lucide-react";
 // ─────────────────────────────────────────────────────────────
 // PAGE: WALLET
 // ─────────────────────────────────────────────────────────────
 export default function WalletPage() {
   const { dark } = useTheme();
   const loading = usePageLoad();
+  const [wallets, setWallets] = useState([]);
   const [allocation, setAllocation] = useState(40);
   const LIMIT = 50000;
   const allocated = Math.round((allocation / 100) * LIMIT);
 
-  const [wallets, setWallets] = useState([]);
+  const totalBalance = wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0);
   useEffect(() => {
-  const userId = localStorage.getItem("user_id");
+    const userId = localStorage.getItem("user_id");
 
-  if (!userId) return;
+    if (!userId) return;
 
-  getUserWallets(userId)
-    .then(data => setWallets(data))
-    .catch(err => console.error(err));
-}, []);
+    getUserWallets(userId)
+      .then(data => setWallets(data))
+      .catch(err => console.error(err));
+  }, []);
   const walletIconCls = ["bg-indigo-50 text-indigo-600", "bg-emerald-50 text-emerald-600", "bg-amber-50 text-amber-600"];
 
   if (loading) return (
@@ -51,7 +49,9 @@ export default function WalletPage() {
           <div className="flex items-start justify-between mb-8">
             <div>
               <p className={cls("text-sm font-medium", T.muted(dark))}>Primary Wallet Balance</p>
-              <p className={cls("text-[40px] font-bold mt-1 tracking-tight", T.text(dark))}>₹1,24,850</p>
+              <p className={cls("text-[40px] font-bold mt-1 tracking-tight", T.text(dark))}>
+                ₹{totalBalance.toLocaleString()}
+              </p>
               <p className={cls("text-sm mt-1", T.subtle(dark))}>Available for allocation</p>
             </div>
             <Badge variant="success">Active</Badge>
@@ -101,8 +101,8 @@ export default function WalletPage() {
                   </div>
                 </div>
                 <Badge variant={w.badge}>
-  {w.tag ? w.tag.charAt(0).toUpperCase() + w.tag.slice(1) : "Unknown"}
-</Badge>
+                  {w.tag ? w.tag.charAt(0).toUpperCase() + w.tag.slice(1) : "Unknown"}
+                </Badge>
               </div>
             </Card>
           ))}

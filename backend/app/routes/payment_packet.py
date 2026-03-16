@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 from app.database import get_db
 from app.services import payment_session_service, transaction_service
-from app.utils.packet_crypto import decrypt_payload
+from app.utils.packet_crypto import decrypt_payload, encrypt_payload
 
 router = APIRouter()
 
@@ -18,6 +18,27 @@ class PaymentPacketRequest(BaseModel):
     session_id: str
     nonce: str
     ciphertext: str
+
+
+class EncryptRequest(BaseModel):
+    session_key: str
+    payload: dict
+
+
+@router.post("/encrypt")
+def encrypt_payment_packet(payload: EncryptRequest):
+    """
+    SECURITY: helper to securely AES-encrypt the payment payload on the backend
+    so the PWA doesn't need to ship heavy crypto-js libraries.
+    """
+    payload_bytes = json.dumps(payload.payload).encode("utf-8")
+    
+    try:
+        encrypted = encrypt_payload(payload.session_key, payload_bytes)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Encryption failed: {str(exc)}")
+        
+    return encrypted
 
 
 @router.post("/submit")

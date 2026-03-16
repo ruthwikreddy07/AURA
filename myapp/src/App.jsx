@@ -16,17 +16,13 @@
  * #Advanced — White/40 and White/10 borders for macOS panel effect
  */
 import { ThemeProvider } from "./context/ThemeContext";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+
 import { Routes, Route, Navigate } from "react-router-dom"
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid, Wallet, Disc, ArrowRightLeft, RefreshCw, BarChart3, Settings,
-  User, Mail, Lock, PlusCircle, ArrowDown, ArrowUp, AlertTriangle, CheckCircle,
-  Search, Bell, Menu, X, Smartphone, ShieldCheck,
-  Send, Inbox, Radio, Bluetooth, Volume2, Sun, QrCode, Wifi,
-  Zap, Activity, Battery, Mic, Eye, Gauge, Fingerprint, Clock, ShieldAlert,
-  CheckCircle2, Loader2, ScanLine, Cpu, Signal
+  Send, Inbox, Radio
 } from "lucide-react";
 // Pages
 import LandingPage from "./pages/LandingPage";

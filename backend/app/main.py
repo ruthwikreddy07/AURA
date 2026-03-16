@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routes import (
     auth,
     wallet,
@@ -16,22 +19,46 @@ from app.config import settings
 from app.routes import simulation
 from app.database import Base, engine
 
-Base.metadata.create_all(bind=engine)
+# NOTE: Schema is now managed by Alembic migrations.
+# Run: py -3.12 -m alembic upgrade head
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 app = FastAPI(
     title="AURA",
     description="Offline Adaptive Payment Protocol API",
     version="1.0.0",
-    debug=settings.DEBUG,
+    debug=False,  # Must be False so global_exception_handler can add CORS headers
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all handler so that even 500 responses carry CORS headers."""
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in ALLOWED_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+
+    traceback.print_exc()  # still log the full traceback to the console
+
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers=headers,
+    )
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])

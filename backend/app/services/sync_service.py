@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.sync import SyncQueue
 from app.models.token import Token
+from app.models.wallet import Wallet
 # SECURITY: fraud detection logging for duplicate token redemption
 from app.models.risk import RiskLog
 from datetime import datetime, timezone
@@ -59,8 +60,12 @@ def process_sync_token(db: Session, token_id: str) -> bool:
     # SECURITY: enforce first-sync-wins settlement
     if token.sync_status == "synced":
 
+        # Look up the wallet owner for fraud logging
+        wallet = db.query(Wallet).filter(Wallet.id == token.wallet_id).first()
+        owner_id = wallet.user_id if wallet else None
+
         fraud = RiskLog(
-            user_id=None,
+            user_id=owner_id,
             transaction_id=None,
             risk_score=1.0,
             decision="duplicate_token_sync"
