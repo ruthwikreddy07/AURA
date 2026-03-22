@@ -11,13 +11,13 @@ const ALL_MODES = [
   { id: "QR", name: "QR Code", desc: "Camera-based encrypted QR scanning", range: "Line of sight", latency: "~1.2s", available: true },
   { id: "BLE", name: "Bluetooth LE", desc: "Peer-to-peer BLE GATT transfer", range: "~30 meters", latency: "~0.8s", available: true },
   { id: "NFC", name: "NFC Tap", desc: "Near-field contactless data exchange", range: "~4 cm", latency: "~0.3s", available: true },
-  { id: "Sound", name: "Ultrasonic", desc: "Data-over-sound using inaudible frequencies", range: "~3 meters", latency: "~2.5s", available: false },
-  { id: "Light", name: "Li-Fi", desc: "Screen-based visible light communication", range: "~1 meter", latency: "~3.0s", available: false },
+  { id: "Sound", name: "Ultrasonic", desc: "FSK tones at 18–20kHz (inaudible)", range: "~3 meters", latency: "~2.5s", available: true },
+  { id: "Light", name: "Li-Fi", desc: "Manchester-encoded flashlight pulses", range: "~1 meter", latency: "~3.0s", available: true },
 ];
 
 export default function ModeControlScreen() {
   const c = useColors();
-  const [enabled, setEnabled] = useState({ QR: true, BLE: true, NFC: true, Sound: false, Light: false });
+  const [enabled, setEnabled] = useState({ QR: true, BLE: true, NFC: true, Sound: true, Light: true });
   const [priority, setPriority] = useState("QR");
 
   const toggleMode = (id) => setEnabled((prev) => ({ ...prev, [id]: !prev[id] }));

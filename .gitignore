@@ -1,1 +1,38 @@
+# Dependency directories
+node_modules/
+venv/
+env/
+__pycache__/
+
+# Build directories
+dist/
+build/
+.expo/
+web-build/
+
+# Keys and secrets
 backend/keys/*
+.env
+.env.*
+*.pem
+*.key
+
+# Logs and temp files
+*.log
+*.resolved*
+.DS_Store
+
+# Native mobile
+/mobile/ios/
+/mobile/android/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Metro & Typescript
+.metro-health-check*
+*.tsbuildinfo
+npm-debug.*
+yarn-debug.*
+yarn-error.*
