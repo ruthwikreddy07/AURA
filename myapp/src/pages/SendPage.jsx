@@ -28,6 +28,7 @@ export default function SendPage() {
 
   const [progressVal, setProgressVal] = useState(0);
   const [qrData, setQrData] = useState(null);
+  const [session, setSession] = useState(null);
   const senderId = "00000000-0000-0000-0000-000000000001";
   const receiverId = "00000000-0000-0000-0000-000000000002";
 
