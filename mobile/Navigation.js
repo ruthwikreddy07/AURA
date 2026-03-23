@@ -1,6 +1,8 @@
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useState, useEffect } from "react";
+import * as SecureStore from "expo-secure-store";
 
 import { useTheme, useColors } from "./src/context/ThemeContext";
 
@@ -16,6 +18,10 @@ import SettingsScreen from "./src/screens/SettingsScreen";
 import ModeControlScreen from "./src/screens/ModeControlScreen";
 import SyncScreen from "./src/screens/SyncScreen";
 import AnalyticsScreen from "./src/screens/AnalyticsScreen";
+import BankScreen from "./src/screens/BankScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
+import NotificationsScreen from "./src/screens/NotificationsScreen";
+import AppLockScreen from "./src/screens/AppLockScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,6 +37,9 @@ function MoreNavigator() {
       <MoreStack.Screen name="SyncStatus" component={SyncScreen} />
       <MoreStack.Screen name="Analytics" component={AnalyticsScreen} />
       <MoreStack.Screen name="Settings" component={SettingsScreen} />
+      <MoreStack.Screen name="BankAccounts" component={BankScreen} />
+      <MoreStack.Screen name="Profile" component={ProfileScreen} />
+      <MoreStack.Screen name="Notifications" component={NotificationsScreen} />
     </MoreStack.Navigator>
   );
 }
@@ -44,7 +53,10 @@ function MoreMenuScreen({ navigation }) {
 
   const items = [
     { label: "Wallet", icon: "💳", screen: "Wallet" },
+    { label: "Bank Accounts", icon: "🏦", screen: "BankAccounts" },
     { label: "Offline Tokens", icon: "🪙", screen: "Tokens" },
+    { label: "Profile & KYC", icon: "👤", screen: "Profile" },
+    { label: "Notifications", icon: "🔔", screen: "Notifications" },
     { label: "Mode Control", icon: "📡", screen: "ModeControl" },
     { label: "Sync Status", icon: "🔄", screen: "SyncStatus" },
     { label: "Analytics", icon: "📊", screen: "Analytics" },
@@ -122,6 +134,29 @@ function TabNavigator() {
 
 export default function AppNavigation() {
   const { dark } = useTheme();
+  const [locked, setLocked] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    checkAppLock();
+  }, []);
+
+  const checkAppLock = async () => {
+    try {
+      const enabled = await SecureStore.getItemAsync("app_lock_enabled");
+      setLocked(enabled === "true");
+    } catch (e) {
+      /* no lock */
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  if (checking) return null;
+
+  if (locked) {
+    return <AppLockScreen onUnlock={() => setLocked(false)} />;
+  }
 
   return (
     <NavigationContainer theme={dark ? DarkTheme : DefaultTheme}>

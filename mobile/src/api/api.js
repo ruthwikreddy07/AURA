@@ -21,11 +21,40 @@ export const loginUser = (data) =>
 export const registerUser = (data) =>
   request("/auth/register", { method: "POST", body: JSON.stringify(data) });
 
+export const setTransactionPin = (pin) =>
+  request("/auth/set-pin", { method: "POST", body: JSON.stringify({ pin }) });
+
+export const verifyTransactionPin = (pin) =>
+  request("/auth/verify-pin", { method: "POST", body: JSON.stringify({ pin }) });
+
+export const getUserProfile = () => request("/auth/me");
+
+export const updateUserProfile = (data) =>
+  request("/auth/me", { method: "PUT", body: JSON.stringify(data) });
+
 /* ═══ WALLET ═══ */
-export const getUserWallet = (userId) => request(`/wallet/${userId}`);
+export const getUserWallet = (userId) => request(`/wallet/user/${userId}`);
+
+export const fundWallet = (data) =>
+  request("/wallet/fund", { method: "POST", body: JSON.stringify(data) });
+
+export const withdrawWallet = (data) =>
+  request("/wallet/withdraw", { method: "POST", body: JSON.stringify(data) });
+
+/* ═══ BANK ═══ */
+export const linkBankAccount = (data) =>
+  request("/bank/link", { method: "POST", body: JSON.stringify(data) });
+
+export const getUserBankAccounts = (userId) => request(`/bank/user/${userId}`);
+
+export const removeBankAccount = (accountId) =>
+  request(`/bank/${accountId}`, { method: "DELETE" });
+
+export const setPrimaryBank = (accountId) =>
+  request(`/bank/${accountId}/set-primary`, { method: "PUT" });
 
 /* ═══ TOKENS ═══ */
-export const getUserTokens = (userId) => request(`/tokens/user/${userId}`);
+export const getUserTokens = (walletId) => request(`/tokens/wallet/${walletId}`);
 export const issueToken = (data) =>
   request("/tokens/issue", { method: "POST", body: JSON.stringify(data) });
 

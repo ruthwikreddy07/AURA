@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 
 import { useColors } from "../context/ThemeContext";
-import { createPaymentSession, submitMotionProof, encryptPacket } from "../api/api";
+import { createPaymentSession, submitMotionProof, encryptPacket, verifyTransactionPin } from "../api/api";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -18,6 +19,8 @@ import SoundService from "../services/SoundService";
 import LightService from "../services/LightService";
 
 const MODES = ["QR", "BLE", "NFC", "Sound", "Light"];
+const TX_LOCK_KEY = "@aura_tx_lock";
+const TX_LOCK_TIMEOUT = 5000; // 5 seconds
 
 export default function SendScreen({ navigation }) {
   const c = useColors();
@@ -26,6 +29,7 @@ export default function SendScreen({ navigation }) {
   const [receiverId, setReceiverId] = useState("");
   const [activeMode, setActiveMode] = useState("QR");
   const [loading, setLoading] = useState(false);
+  const [pin, setPin] = useState("");
 
   const [session, setSession] = useState(null);
   const [riskScore, setRiskScore] = useState(10);
@@ -65,6 +69,22 @@ export default function SendScreen({ navigation }) {
     Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 50, useNativeDriver: true }).start();
   };
 
+  /* ═══ DOUBLE-SPEND LOCK ═══ */
+  const acquireTxLock = async () => {
+    const existing = await AsyncStorage.getItem(TX_LOCK_KEY);
+    if (existing) {
+      const lockTime = parseInt(existing, 10);
+      if (Date.now() - lockTime < TX_LOCK_TIMEOUT) {
+        throw new Error("Transaction already in progress. Please wait.");
+      }
+    }
+    await AsyncStorage.setItem(TX_LOCK_KEY, Date.now().toString());
+  };
+
+  const releaseTxLock = async () => {
+    await AsyncStorage.removeItem(TX_LOCK_KEY);
+  };
+
   const handleNext = async () => {
     if (!amount || !receiverId) return;
     setLoading(true);
@@ -88,10 +108,28 @@ export default function SendScreen({ navigation }) {
     }
   };
 
-  const handleConfirm = async () => {
+  /* ═══ PIN VERIFICATION → CONFIRM ═══ */
+  const handlePinVerify = async () => {
     if (riskLevel === "High Risk") return Alert.alert("Blocked", "Blocked by Risk Engine");
+    if (!pin || pin.length < 4) return Alert.alert("PIN Required", "Enter your 4-digit transaction PIN.");
     setLoading(true);
     try {
+      await verifyTransactionPin(pin);
+      // PIN verified, proceed to confirm
+      await handleConfirm();
+    } catch (e) {
+      Alert.alert("PIN Verification Failed", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      // Double-spend prevention lock
+      await acquireTxLock();
+
       const senderId = await SecureStore.getItemAsync("user_id");
       await submitMotionProof({ session_id: session.session_id, user_id: senderId, motion_hash: "sender-motion-ok" });
 
@@ -107,6 +145,7 @@ export default function SendScreen({ navigation }) {
       else if (activeMode === "Light")  { setStep("light-flash"); startLightTransmit(packetStr); }
       slideIn();
     } catch (e) {
+      await releaseTxLock();
       Alert.alert("Error", e.message);
     } finally {
       setLoading(false);
@@ -126,8 +165,8 @@ export default function SendScreen({ navigation }) {
     setBleStatus("connecting");
     try {
       const result = await BLEService.sendPacket(deviceId, encryptedPacketStr, (s) => setBleStatus(s));
-      if (result.success) { setBleStatus("sent"); setTimeout(() => setStep("success"), 1500); }
-    } catch (e) { setBleStatus("error"); Alert.alert("BLE Error", e.message); }
+      if (result.success) { setBleStatus("sent"); setTimeout(() => { releaseTxLock(); setStep("success"); }, 1500); }
+    } catch (e) { setBleStatus("error"); releaseTxLock(); Alert.alert("BLE Error", e.message); }
   };
 
   /* ═══ NFC ═══ */
@@ -137,7 +176,7 @@ export default function SendScreen({ navigation }) {
     if (!enabled) { Alert.alert("NFC Disabled", "Enable NFC in Settings"); NFCService.goToSettings(); return; }
     setNfcStatus("waiting");
     const success = await NFCService.writePacket(packet, (s) => setNfcStatus(s));
-    if (success) { setNfcStatus("sent"); setTimeout(() => setStep("success"), 1500); }
+    if (success) { setNfcStatus("sent"); setTimeout(() => { releaseTxLock(); setStep("success"); }, 1500); }
   };
 
   /* ═══ SOUND ═══ */
@@ -149,9 +188,10 @@ export default function SendScreen({ navigation }) {
         setSoundProgress(Math.round((progress || 0) * 100));
       });
       setSoundStatus("complete");
-      setTimeout(() => setStep("success"), 1500);
+      setTimeout(() => { releaseTxLock(); setStep("success"); }, 1500);
     } catch (e) {
       setSoundStatus("error");
+      releaseTxLock();
       Alert.alert("Sound Error", e.message);
     }
   };
@@ -169,18 +209,20 @@ export default function SendScreen({ navigation }) {
         }
       );
       setLightStatus("complete");
-      setTimeout(() => setStep("success"), 1500);
+      setTimeout(() => { releaseTxLock(); setStep("success"); }, 1500);
     } catch (e) {
       setLightStatus("error");
+      releaseTxLock();
       Alert.alert("Light Error", e.message);
     }
   };
 
   const reset = () => {
-    setStep("input"); setAmount(""); setReceiverId(""); setQrData(null); setEncryptedPacketStr(null);
+    setStep("input"); setAmount(""); setReceiverId(""); setPin(""); setQrData(null); setEncryptedPacketStr(null);
     setBleDevices([]); setBleStatus("idle"); setNfcStatus("idle"); setSoundStatus("idle"); setLightStatus("idle");
     setTorchOn(false); setSoundProgress(0); setLightProgress({ bitIndex: 0, totalBits: 0 });
     BLEService.stopScan(); NFCService.cancelRequest(); SoundService.destroy(); LightService.destroy();
+    releaseTxLock();
   };
 
   const handshakeState = (status) => {
@@ -220,7 +262,7 @@ export default function SendScreen({ navigation }) {
             </Card>
           )}
 
-          {/* ═══ RISK ═══ */}
+          {/* ═══ RISK + PIN ═══ */}
           {step === "risk" && (
             <Card>
               <Text style={[styles.sectionTitle, { color: c.text, textAlign: "center", marginBottom: 24 }]}>Review Transfer</Text>
@@ -233,10 +275,24 @@ export default function SendScreen({ navigation }) {
                 <ModeBadge mode={activeMode} active size="sm" />
               </View>
               <RiskCard score={riskScore} level={riskLevel} />
-              <View style={{ flexDirection: "row", gap: 12, marginTop: 32 }}>
-                <Button variant="secondary" style={{ flex: 1 }} onPress={() => setStep("input")}>Cancel</Button>
-                <Button style={{ flex: 1 }} onPress={handleConfirm} disabled={loading || riskLevel === "High Risk"}>
-                  {loading ? "Encrypting..." : "Authorize"}
+
+              {/* Transaction PIN Input */}
+              <View style={styles.pinSection}>
+                <Text style={[styles.pinLabel, { color: c.textSecondary }]}>Transaction PIN</Text>
+                <Input
+                  placeholder="Enter 4-digit PIN"
+                  value={pin}
+                  onChangeText={setPin}
+                  keyboardType="numeric"
+                  secureTextEntry
+                  maxLength={6}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+                <Button variant="secondary" style={{ flex: 1 }} onPress={() => { setStep("input"); setPin(""); }}>Cancel</Button>
+                <Button style={{ flex: 1 }} onPress={handlePinVerify} disabled={loading || riskLevel === "High Risk" || pin.length < 4}>
+                  {loading ? "Verifying..." : "Authorize"}
                 </Button>
               </View>
             </Card>
@@ -252,7 +308,7 @@ export default function SendScreen({ navigation }) {
               </View>
               <View style={{ flexDirection: "row", gap: 12, marginTop: 40, width: "100%" }}>
                 <Button variant="secondary" style={{ flex: 1 }} onPress={reset}>Cancel</Button>
-                <Button style={{ flex: 1 }} onPress={() => setStep("success")}>Done</Button>
+                <Button style={{ flex: 1 }} onPress={() => { releaseTxLock(); setStep("success"); }}>Done</Button>
               </View>
             </Card>
           )}
@@ -378,4 +434,6 @@ const styles = StyleSheet.create({
   progressBar: { width: "100%", height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   torchIndicator: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center" },
+  pinSection: { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: "#8881" },
+  pinLabel: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
 });

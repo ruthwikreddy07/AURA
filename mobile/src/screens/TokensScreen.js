@@ -21,9 +21,11 @@ export default function TokensScreen({ navigation }) {
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
+      // Tokens are fetched by wallet_id — for now we use userId as fallback
       const res = await getUserTokens(userId).catch(() => [
-        { id: "TKN-1234", amount: 1000, status: "active", created_at: new Date().toISOString() },
-        { id: "TKN-5678", amount: 500, status: "spent", created_at: new Date().toISOString() }
+        { id: "TKN-1234", token_value: 1000, remaining_value: 750, status: "active", issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString() },
+        { id: "TKN-5678", token_value: 500, remaining_value: 0, status: "spent", issued_at: new Date().toISOString(), expires_at: new Date().toISOString() },
+        { id: "TKN-9012", token_value: 2000, remaining_value: 2000, status: "active", issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 172800000).toISOString() },
       ]);
       setTokens(res);
     } catch (e) {
@@ -41,7 +43,11 @@ export default function TokensScreen({ navigation }) {
     setIssuing(true);
     try {
       const userId = await SecureStore.getItemAsync("user_id");
-      await issueToken({ user_id: userId, amount: Number(amount) });
+      await issueToken({
+        wallet_id: userId,
+        token_value: Number(amount),
+        expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), // 7 day expiry
+      });
       setAmount("");
       loadData();
     } catch (e) {
@@ -49,6 +55,28 @@ export default function TokensScreen({ navigation }) {
     } finally {
       setIssuing(false);
     }
+  };
+
+  const getSpendPercent = (tkn) => {
+    const total = Number(tkn.token_value) || 1;
+    const remaining = Number(tkn.remaining_value) || 0;
+    return ((total - remaining) / total) * 100;
+  };
+
+  const getTimeLeft = (expiresAt) => {
+    const diff = new Date(expiresAt) - new Date();
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 24) return `${hours}h left`;
+    const days = Math.floor(hours / 24);
+    return `${days}d left`;
+  };
+
+  const statusColor = (status) => {
+    if (status === "active") return "success";
+    if (status === "spent") return "info";
+    if (status === "expired") return "warning";
+    return "info";
   };
 
   return (
@@ -85,20 +113,70 @@ export default function TokensScreen({ navigation }) {
         {tokens.length === 0 ? (
           <Text style={{ color: c.textMuted, textAlign: "center", padding: 20 }}>No tokens provisioned.</Text>
         ) : (
-          tokens.map((tkn, i) => (
-            <Card key={i} style={styles.tknCard}>
-              <View style={styles.tknHeader}>
-                <Text style={[styles.tknId, { color: c.text }]}>{tkn.id.substring(0, 8).toUpperCase()}</Text>
-                <Badge 
-                  status={tkn.status === "active" ? "success" : "info"} 
-                  text={tkn.status.toUpperCase()} 
-                  size="sm" 
-                />
-              </View>
-              <Text style={[styles.tknAmt, { color: c.text }]}>₹{Number(tkn.amount).toLocaleString()}</Text>
-              <Text style={[styles.tknDate, { color: c.textMuted }]}>Issued on {new Date(tkn.created_at).toLocaleDateString()}</Text>
-            </Card>
-          ))
+          tokens.map((tkn, i) => {
+            const spentPct = getSpendPercent(tkn);
+            const tokenValue = Number(tkn.token_value) || Number(tkn.amount) || 0;
+            const remainingValue = Number(tkn.remaining_value) ?? tokenValue;
+            const isPartiallySpent = remainingValue < tokenValue && remainingValue > 0;
+
+            return (
+              <Card key={i} style={styles.tknCard}>
+                <View style={styles.tknHeader}>
+                  <Text style={[styles.tknId, { color: c.text }]}>
+                    {(tkn.id || "").substring(0, 8).toUpperCase()}
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                    <Badge 
+                      status={statusColor(tkn.status)} 
+                      text={tkn.status?.toUpperCase() || "UNKNOWN"} 
+                      size="sm" 
+                    />
+                    {tkn.expires_at && tkn.status === "active" && (
+                      <Text style={[styles.timeLeft, { color: c.amber }]}>{getTimeLeft(tkn.expires_at)}</Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Amount display */}
+                <View style={styles.amountRow}>
+                  <View>
+                    <Text style={[styles.tknLabel, { color: c.textMuted }]}>Face Value</Text>
+                    <Text style={[styles.tknAmt, { color: c.text }]}>₹{tokenValue.toLocaleString()}</Text>
+                  </View>
+                  {isPartiallySpent && (
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={[styles.tknLabel, { color: c.textMuted }]}>Remaining</Text>
+                      <Text style={[styles.tknRemaining, { color: c.emerald }]}>₹{remainingValue.toLocaleString()}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Spend progress bar */}
+                {tkn.status === "active" && (
+                  <View style={styles.progressSection}>
+                    <View style={[styles.progressBar, { backgroundColor: c.border }]}>
+                      <View style={[styles.progressFill, { 
+                        width: `${Math.min(spentPct, 100)}%`, 
+                        backgroundColor: spentPct > 80 ? c.red : spentPct > 50 ? c.amber : c.emerald 
+                      }]} />
+                    </View>
+                    <View style={styles.progressLabels}>
+                      <Text style={[styles.progressText, { color: c.textMuted }]}>
+                        {spentPct > 0 ? `${Math.round(spentPct)}% spent` : "Unspent"}
+                      </Text>
+                      <Text style={[styles.progressText, { color: c.textMuted }]}>
+                        ₹{(tokenValue - remainingValue).toLocaleString()} used
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                <Text style={[styles.tknDate, { color: c.textMuted }]}>
+                  Issued {new Date(tkn.issued_at || tkn.created_at).toLocaleDateString()}
+                </Text>
+              </Card>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -119,6 +197,15 @@ const styles = StyleSheet.create({
   tknCard: { padding: 16, marginBottom: 12 },
   tknHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   tknId: { fontSize: 14, fontWeight: "700", fontFamily: "monospace" },
-  tknAmt: { fontSize: 24, fontWeight: "800", marginBottom: 4 },
+  timeLeft: { fontSize: 11, fontWeight: "700" },
+  amountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 },
+  tknLabel: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
+  tknAmt: { fontSize: 24, fontWeight: "800" },
+  tknRemaining: { fontSize: 20, fontWeight: "800" },
+  progressSection: { marginBottom: 12 },
+  progressBar: { width: "100%", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 4 },
+  progressFill: { height: "100%", borderRadius: 3 },
+  progressLabels: { flexDirection: "row", justifyContent: "space-between" },
+  progressText: { fontSize: 11, fontWeight: "500" },
   tknDate: { fontSize: 12, fontWeight: "500" },
 });

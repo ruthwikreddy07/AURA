@@ -105,3 +105,65 @@ def verify_pin(
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Transaction PIN")
     return {"status": "success"}
+
+
+class ProfileResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    is_active: bool
+    phone_number: str | None
+    phone_verified: bool
+    kyc_status: str
+    app_lock_enabled: bool
+    has_transaction_pin: bool
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/me", response_model=ProfileResponse)
+def get_profile(current_user: User = Depends(get_current_user)):
+    return ProfileResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+        phone_number=current_user.phone_number,
+        phone_verified=current_user.phone_verified,
+        kyc_status=current_user.kyc_status,
+        app_lock_enabled=current_user.app_lock_enabled,
+        has_transaction_pin=current_user.transaction_pin_hash is not None,
+    )
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: str | None = None
+    phone_number: str | None = None
+    app_lock_enabled: bool | None = None
+
+
+@router.put("/me", response_model=ProfileResponse)
+def update_profile(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name
+    if payload.phone_number is not None:
+        current_user.phone_number = payload.phone_number
+    if payload.app_lock_enabled is not None:
+        current_user.app_lock_enabled = payload.app_lock_enabled
+    db.commit()
+    db.refresh(current_user)
+    return ProfileResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+        phone_number=current_user.phone_number,
+        phone_verified=current_user.phone_verified,
+        kyc_status=current_user.kyc_status,
+        app_lock_enabled=current_user.app_lock_enabled,
+        has_transaction_pin=current_user.transaction_pin_hash is not None,
+    )

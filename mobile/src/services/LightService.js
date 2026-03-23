@@ -247,6 +247,59 @@ class LightService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  // ═══════════ RECEIVER: BRIGHTNESS CAPTURE LOOP ═══════════
+
+  /**
+   * Start listening for incoming light-pulse data via camera brightness analysis.
+   * Pass brightness samples from the camera preview into this method's sampling loop.
+   *
+   * @param {function} onBrightnessFrame - Called by the camera at ~10ms interval with brightness (0-255)
+   * @param {function} onPacketReceived - Called with decoded packet string when successfully decoded
+   * @param {function} onStatusChange - Status callback: listening, capturing, decoding, received, error
+   * @param {number} durationMs - How long to capture brightness samples (default 15s)
+   */
+  async listen(onPacketReceived, onStatusChange = () => {}, durationMs = 15000) {
+    if (this.isListening) throw new Error("Already listening");
+    this.isListening = true;
+    this.brightnessSamples = [];
+
+    try {
+      onStatusChange("listening");
+
+      // Collect brightness samples over the duration
+      // The caller (ReceiveScreen) will feed brightness data via addBrightnessSample()
+      await new Promise((resolve) => setTimeout(resolve, durationMs));
+
+      if (this.brightnessSamples.length < 100) {
+        onStatusChange("error");
+        throw new Error("Insufficient brightness data captured. Point camera at sender's flashlight.");
+      }
+
+      onStatusChange("decoding");
+      const decoded = this.decodeBrightness(this.brightnessSamples);
+
+      onStatusChange("received");
+      if (onPacketReceived) onPacketReceived(decoded);
+      return decoded;
+    } catch (error) {
+      onStatusChange("error");
+      throw error;
+    } finally {
+      this.isListening = false;
+      this.brightnessSamples = [];
+    }
+  }
+
+  /**
+   * Feed a brightness sample (0-255) from the camera preview frame.
+   * Should be called at ~10ms intervals by the camera frame processor.
+   */
+  addBrightnessSample(brightness) {
+    if (this.isListening && this.brightnessSamples) {
+      this.brightnessSamples.push(brightness);
+    }
+  }
+
   // ═══════════ UTILITY ═══════════
 
   stopTransmitting() {

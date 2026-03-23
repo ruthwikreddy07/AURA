@@ -13,7 +13,7 @@ export default function HomeScreen({ navigation }) {
   const c = useColors();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [wallet, setWallet] = useState({ balance: 0, offline_balance: 0 });
+  const [wallets, setWallets] = useState([]);
   const [txs, setTxs] = useState([]);
 
   const loadData = async () => {
@@ -22,11 +22,11 @@ export default function HomeScreen({ navigation }) {
       if (!userId) return navigation.replace("Auth");
 
       const [wRes, tRes] = await Promise.all([
-        getUserWallet(userId).catch(() => ({ balance: 12400, offline_balance: 4500 })), // fallback mocked
+        getUserWallet(userId).catch(() => []),
         getUserTransactions(userId).catch(() => []),
       ]);
-      setWallet(wRes);
-      setTxs(tRes.slice(0, 3) || []);
+      setWallets(Array.isArray(wRes) ? wRes : [wRes].filter(Boolean));
+      setTxs((tRes || []).slice(0, 3));
     } catch (e) {
       console.error(e);
     } finally {
@@ -37,6 +37,10 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => { loadData(); }, []);
   const onRefresh = () => { setRefreshing(true); loadData(); };
+
+  const totalBalance = wallets.reduce((sum, w) => sum + (Number(w.balance) || 0), 0);
+  const onlineBalance = wallets.find(w => w.wallet_type === "online")?.balance || wallets[0]?.balance || 0;
+  const offlineBalance = wallets.find(w => w.wallet_type === "offline")?.balance || 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]}>
@@ -58,17 +62,17 @@ export default function HomeScreen({ navigation }) {
         {/* Total Balance Card */}
         <Card style={styles.mainCard}>
           <Text style={[styles.cardSub, { color: c.textSecondary }]}>Total Balance</Text>
-          <Text style={[styles.cardTitle, { color: c.text }]}>₹{(wallet.balance + wallet.offline_balance).toLocaleString()}</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>₹{Number(totalBalance).toLocaleString()}</Text>
           
           <View style={styles.splitRow}>
             <View style={styles.splitCol}>
               <Text style={[styles.splitLabel, { color: c.textMuted }]}>Online</Text>
-              <Text style={[styles.splitVal, { color: c.emerald }]}>₹{wallet.balance.toLocaleString()}</Text>
+              <Text style={[styles.splitVal, { color: c.emerald }]}>₹{Number(onlineBalance).toLocaleString()}</Text>
             </View>
             <View style={[styles.splitDiv, { backgroundColor: c.border }]} />
             <View style={styles.splitCol}>
               <Text style={[styles.splitLabel, { color: c.textMuted }]}>Offline Reserved</Text>
-              <Text style={[styles.splitVal, { color: c.violet }]}>₹{wallet.offline_balance.toLocaleString()}</Text>
+              <Text style={[styles.splitVal, { color: c.violet }]}>₹{Number(offlineBalance).toLocaleString()}</Text>
             </View>
           </View>
         </Card>
@@ -98,7 +102,7 @@ export default function HomeScreen({ navigation }) {
                   <Text style={[styles.txDate, { color: c.textMuted }]}>{new Date(tx.created_at).toLocaleDateString()}</Text>
                 </View>
                 <Text style={[styles.txAmt, { color: tx.tx_type === "offline_send" ? c.text : c.emerald }]}>
-                  {tx.tx_type === "offline_send" ? "-" : "+"}₹{tx.amount.toLocaleString()}
+                  {tx.tx_type === "offline_send" ? "-" : "+"}₹{Number(tx.amount || 0).toLocaleString()}
                 </Text>
               </View>
             ))

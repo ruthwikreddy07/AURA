@@ -108,3 +108,39 @@ def remove_bank_account(
     db.commit()
     
     return {"status": "success", "message": "Bank account removed"}
+
+
+@router.put("/{account_id}/set-primary", response_model=BankAccountResponse)
+def set_primary_bank_account(
+    account_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify the account exists and belongs to the user
+    account = db.query(BankAccount).filter(
+        BankAccount.id == account_id,
+        BankAccount.user_id == current_user.id
+    ).first()
+    
+    if not account:
+        raise HTTPException(status_code=404, detail="Bank account not found")
+    
+    # Clear primary flag on all user accounts
+    db.query(BankAccount).filter(
+        BankAccount.user_id == current_user.id
+    ).update({"is_primary": False})
+    
+    # Set the selected account as primary
+    account.is_primary = True
+    db.commit()
+    db.refresh(account)
+    
+    return BankAccountResponse(
+        id=str(account.id),
+        bank_name=account.bank_name,
+        account_name=account.account_name,
+        account_number_masked=account.account_number_masked,
+        ifsc_code=account.ifsc_code,
+        upi_id=account.upi_id,
+        is_primary=account.is_primary
+    )

@@ -310,15 +310,34 @@ class SoundService {
       onStatusChange("decoding");
 
       const uri = recording.getURI();
-      // In a production app, you'd read the WAV file, run FFT analysis,
-      // and decode the FSK signal. For now, we simulate the decode step
-      // since full FFT in JS requires either a native module or Web Audio API.
 
-      // The decoded data would come from frequency analysis of the recording
-      // For demonstration, we return the URI for external processing
-      onStatusChange("processed");
+      // ── Read WAV, extract PCM, decode FSK ──
+      try {
+        const response = await fetch(uri);
+        const arrayBuf = await response.arrayBuffer();
+        const dataView = new DataView(arrayBuf);
 
-      return uri;
+        // Skip WAV header (44 bytes), read 16-bit PCM samples
+        const pcmStart = 44;
+        const sampleCount = (arrayBuf.byteLength - pcmStart) / 2;
+        const samples = new Float32Array(sampleCount);
+        for (let i = 0; i < sampleCount; i++) {
+          samples[i] = dataView.getInt16(pcmStart + i * 2, true) / 32768;
+        }
+
+        // Run Goertzel-based FSK decoding
+        const bits = this.decodePCM(samples);
+        const decoded = this.bitsToString(bits);
+
+        onStatusChange("received");
+        if (onPacketReceived) onPacketReceived(decoded);
+        return decoded;
+      } catch (decodeError) {
+        // If real decoding fails (e.g., noise), return the URI for external processing
+        console.warn("Sound decode failed, returning URI:", decodeError.message);
+        onStatusChange("processed");
+        return uri;
+      }
     } catch (error) {
       onStatusChange("error");
       throw error;

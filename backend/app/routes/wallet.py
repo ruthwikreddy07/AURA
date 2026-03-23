@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import wallet_service
+from app.services.auth_service import verify_transaction_pin
 
 router = APIRouter()
 
@@ -69,9 +72,12 @@ class FundWalletRequest(BaseModel):
 @router.post("/fund", response_model=WalletResponse)
 def fund_wallet(
     payload: FundWalletRequest,
-    # In a real app we'd verify the PIN and bank account here via auth_service and bank_service
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Verify transaction PIN before funding
+    if not verify_transaction_pin(current_user, payload.pin):
+        raise HTTPException(status_code=403, detail="Invalid transaction PIN")
     try:
         wallet = wallet_service.fund_wallet(db, payload.wallet_id, payload.amount)
     except ValueError as exc:
@@ -94,8 +100,12 @@ class WithdrawWalletRequest(BaseModel):
 @router.post("/withdraw", response_model=WalletResponse)
 def withdraw_wallet(
     payload: WithdrawWalletRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Verify transaction PIN before withdrawal
+    if not verify_transaction_pin(current_user, payload.pin):
+        raise HTTPException(status_code=403, detail="Invalid transaction PIN")
     try:
         wallet = wallet_service.withdraw_wallet(db, payload.wallet_id, payload.amount)
     except ValueError as exc:
