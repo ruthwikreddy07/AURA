@@ -24,6 +24,7 @@ def issue_token(
     token = Token(
     wallet_id=uuid.UUID(wallet_id),
     token_value=token_value,
+    remaining_value=token_value,
     status="active",
     expires_at=expires_at,
     sync_status="pending",
@@ -57,7 +58,30 @@ def mark_token_spent(
     if token is None:
         raise ValueError(f"Token '{token_id}' not found")
     token.status = "spent"
+    token.remaining_value = 0
     token.spent_at = datetime.now(timezone.utc)
+    db.flush()
+    db.refresh(token)
+    return token
+
+def spend_partial_token(
+    db: Session,
+    token_id: str,
+    amount_spent: float,
+) -> Token:
+    token = db.query(Token).filter(Token.id == uuid.UUID(token_id)).first()
+    if token is None:
+        raise ValueError(f"Token '{token_id}' not found")
+        
+    dec_amount = Decimal(str(amount_spent))
+    if token.remaining_value < dec_amount:
+        raise ValueError("Insufficient token balance")
+        
+    token.remaining_value -= dec_amount
+    if token.remaining_value == 0:
+        token.status = "spent"
+        token.spent_at = datetime.now(timezone.utc)
+        
     db.flush()
     db.refresh(token)
     return token

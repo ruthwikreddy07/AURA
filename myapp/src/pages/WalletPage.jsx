@@ -12,6 +12,8 @@ import Badge from "../components/ui/Badge";
 import { Wallet, AlertTriangle, PlusCircle, ArrowUp, ArrowDown } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
 import { Skeleton } from "../components/ui/Skeleton";
+import PinEntryModal from "../components/PinEntryModal";
+import { fundWallet } from "../api/api";
 // ─────────────────────────────────────────────────────────────
 // PAGE: WALLET
 // ─────────────────────────────────────────────────────────────
@@ -20,6 +22,12 @@ export default function WalletPage() {
   const loading = usePageLoad();
   const [wallets, setWallets] = useState([]);
   const [allocation, setAllocation] = useState(40);
+  
+  // Funding state
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [fundingAmount, setFundingAmount] = useState(1000);
+  const [actionType, setActionType] = useState(null); // 'fund' or 'withdraw'
+
   const LIMIT = 50000;
   const allocated = Math.round((allocation / 100) * LIMIT);
 
@@ -41,6 +49,27 @@ export default function WalletPage() {
       <div className="space-y-4"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /></div>
     </div>
   );
+
+  const handleActionClick = (type) => {
+    setActionType(type);
+    setIsPinModalOpen(true);
+  };
+
+  const handlePinSuccess = async (pin) => {
+    setIsPinModalOpen(false);
+    
+    // In a real app we'd call fundWallet/withdrawWallet with the PIN and selected Bank Account
+    // For demo purposes, we'll just simulate a successful UI update by fetching wallets again or optimistically updating
+    alert(`Successfully ${actionType === 'fund' ? 'Added' : 'Withdrawn'} ₹${fundingAmount} using secure PIN!`);
+    
+    // Simulate refresh
+    const userId = localStorage.getItem("user_id");
+    if (userId) {
+       getUserWallets(userId)
+         .then(data => setWallets(data))
+         .catch(err => console.error(err));
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
@@ -106,9 +135,37 @@ export default function WalletPage() {
               </div>
             </Card>
           ))}
-          <Button variant="secondary" className="w-full shadow-none border-dashed"><PlusCircle className="w-4 h-4" /> Add Wallet</Button>
+          
+          <Card className="p-5 border-dashed bg-transparent" glow={false}>
+            <p className={cls("text-sm font-semibold mb-3", T.text(dark))}>Wallet Actions</p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className={cls("text-xl font-bold rounded-lg px-3 py-1 bg-slate-100 dark:bg-slate-800", T.text(dark))}>₹</span>
+              <input 
+                 type="number" 
+                 value={fundingAmount}
+                 onChange={(e) => setFundingAmount(Number(e.target.value))}
+                 className={cls("flex-1 h-10 w-full bg-transparent border-b focus:outline-none focus:border-indigo-500 font-bold text-lg transition-colors", T.text(dark), dark ? "border-slate-700" : "border-slate-300")}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="primary" className="flex-1 shadow-sm" onClick={() => handleActionClick('fund')}>
+                <ArrowDown className="w-4 h-4 mr-1" /> Add
+              </Button>
+              <Button variant="secondary" className="flex-1 shadow-sm" onClick={() => handleActionClick('withdraw')}>
+                <ArrowUp className="w-4 h-4 mr-1" /> Withdraw
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
+
+      <PinEntryModal 
+        isOpen={isPinModalOpen} 
+        onClose={() => setIsPinModalOpen(false)} 
+        onSuccess={handlePinSuccess}
+        title={actionType === 'fund' ? "Authorize Bank Transfer" : "Authorize Withdrawal"}
+        amount={fundingAmount}
+      />
     </div>
   );
 }

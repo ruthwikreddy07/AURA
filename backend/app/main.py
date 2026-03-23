@@ -14,6 +14,7 @@ from app.routes import (
     mode,
     payment_session,
     payment_packet,
+    bank,
 )
 from app.config import settings
 from app.routes import simulation
@@ -72,6 +73,27 @@ app.include_router(mode.router, prefix="/api/v1/mode", tags=["mode"])
 app.include_router(payment_session.router, prefix="/api/v1/payment-session", tags=["payment-session"])
 app.include_router(payment_packet.router, prefix="/api/v1/payment-packet", tags=["payment-packet"])
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["simulation"])
+app.include_router(bank.router, prefix="/api/v1/bank", tags=["bank"])
+
+# ── Token Expiry Background Task ──────────────────────────────
+from app.tasks.token_expiry import process_expired_tokens
+
+@app.on_event("startup")
+def run_expiry_on_startup():
+    """Process any expired tokens when the server starts."""
+    try:
+        result = process_expired_tokens()
+        print(f"[Startup] Token expiry: {result['processed']} tokens processed, ₹{result['total_refunded']} refunded")
+    except Exception as e:
+        print(f"[Startup] Token expiry check failed: {e}")
+
+
+@app.post("/api/v1/admin/expire-tokens", tags=["admin"])
+def trigger_expiry():
+    """Manual trigger for the token expiry auto-refund task."""
+    result = process_expired_tokens()
+    return result
+
 
 @app.get("/health", tags=["health"])
 def health_check() -> dict:

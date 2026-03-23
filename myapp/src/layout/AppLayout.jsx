@@ -9,7 +9,7 @@ import TopNav from "./TopNav";
 import { useTheme } from "../context/ThemeContext";
 import { cls } from "../utils/cls";
 
-export default function AppLayout() {
+export default function AppLayout({ NAV_ITEMS = [] }) {
   const { dark } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -31,6 +31,7 @@ export default function AppLayout() {
         onNav={(id) => navigate(`/app/${id}`)}
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
+        navItems={NAV_ITEMS}
       />
 
       <MobileSheet
@@ -38,6 +39,7 @@ export default function AppLayout() {
         onClose={() => setMobileOpen(false)}
         active={page}
         onNav={(id) => navigate(`/app/${id}`)}
+        navItems={NAV_ITEMS}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

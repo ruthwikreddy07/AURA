@@ -37,6 +37,34 @@ class User(Base):
         default=True,
         server_default="true",
     )
+    # Security & KYC Expansion
+    transaction_pin_hash: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    phone_number: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        unique=True,
+    )
+    phone_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    kyc_status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+    )
+    app_lock_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

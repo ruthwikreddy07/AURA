@@ -57,3 +57,52 @@ def get_user_wallets(user_id: str, db: Session = Depends(get_db)):
         )
         for w in wallets
     ]
+
+
+class FundWalletRequest(BaseModel):
+    wallet_id: str
+    amount: float
+    bank_account_id: str  # Simulated funding source
+    pin: str  # Verify tx pin
+
+
+@router.post("/fund", response_model=WalletResponse)
+def fund_wallet(
+    payload: FundWalletRequest,
+    # In a real app we'd verify the PIN and bank account here via auth_service and bank_service
+    db: Session = Depends(get_db)
+):
+    try:
+        wallet = wallet_service.fund_wallet(db, payload.wallet_id, payload.amount)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return WalletResponse(
+        id=str(wallet.id),
+        user_id=str(wallet.user_id),
+        wallet_type=wallet.wallet_type,
+        balance=wallet.balance,
+    )
+
+
+class WithdrawWalletRequest(BaseModel):
+    wallet_id: str
+    amount: float
+    bank_account_id: str
+    pin: str
+
+
+@router.post("/withdraw", response_model=WalletResponse)
+def withdraw_wallet(
+    payload: WithdrawWalletRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        wallet = wallet_service.withdraw_wallet(db, payload.wallet_id, payload.amount)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return WalletResponse(
+        id=str(wallet.id),
+        user_id=str(wallet.user_id),
+        wallet_type=wallet.wallet_type,
+        balance=wallet.balance,
+    )

@@ -14,6 +14,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import ModeBadge from "../components/ui/ModeBadge";
 import RiskCard from "../components/ui/RiskCard";
 import HandshakeIndicator from "../components/ui/HandshakeIndicator";
+import PinEntryModal from "../components/PinEntryModal";
 
 // ─────────────────────────────────────────────────────────────
 // PAGE: SEND PAYMENT (AURA Protocol)
@@ -29,6 +30,9 @@ export default function SendPage() {
   const [progressVal, setProgressVal] = useState(0);
   const [qrData, setQrData] = useState(null);
   const [session, setSession] = useState(null);
+  
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  
   const senderId = "00000000-0000-0000-0000-000000000001";
   const receiverId = "00000000-0000-0000-0000-000000000002";
 
@@ -56,14 +60,31 @@ export default function SendPage() {
   }
 
 };
-  const handleConfirm = async () => {
+  const handleConfirmClick = () => {
+    // Open PIN verification before proceeding
+    setIsPinModalOpen(true);
+  };
 
+  const handleConfirm = async (pin) => {
+  setIsPinModalOpen(false);
   if (!session) return;
 
   setStep("progress");
   setProgressVal(0);
 
   try {
+    // ── DOUBLE-SPEND PREVENTION (Two-Phase Commit) ──
+    // Phase 1: Lock the token in localStorage BEFORE transmission
+    const tokenId = "00000000-0000-0000-0000-000000000010";
+    const lockedTokens = JSON.parse(localStorage.getItem("locked_tokens") || "[]");
+    if (lockedTokens.includes(tokenId)) {
+      alert("This token is already being used in a pending transfer. Please wait.");
+      setStep("input");
+      return;
+    }
+    lockedTokens.push(tokenId);
+    localStorage.setItem("locked_tokens", JSON.stringify(lockedTokens));
+
     // 1. Submit Sender Motion Proof (Mocking actual motion detection)
     await submitMotionProof({
       session_id: session.session_id,
@@ -75,7 +96,7 @@ export default function SendPage() {
     const payload = {
       sender_id: senderId,
       receiver_id: receiverId,
-      token_id: "00000000-0000-0000-0000-000000000010",
+      token_id: tokenId,
       risk_score: riskScore / 100
     };
 
@@ -102,6 +123,11 @@ export default function SendPage() {
 
   } catch (err) {
     console.error("Payment error", err);
+    // ── ROLLBACK: Unlock the token on failure ──
+    const locked = JSON.parse(localStorage.getItem("locked_tokens") || "[]");
+    const tokenId = "00000000-0000-0000-0000-000000000010";
+    localStorage.setItem("locked_tokens", JSON.stringify(locked.filter(t => t !== tokenId)));
+    setStep("input");
   }
 
   const interval = setInterval(() => {
@@ -290,7 +316,7 @@ export default function SendPage() {
 
             <div className="flex gap-3">
               <Button variant="secondary" size="lg" className="flex-1" onClick={() => setStep("input")}>Back</Button>
-              <Button variant="primary" size="lg" className="flex-1" onClick={handleConfirm} disabled={riskLevel === "High Risk"} ariaLabel="Confirm and send payment">
+              <Button variant="primary" size="lg" className="flex-1" onClick={handleConfirmClick} disabled={riskLevel === "High Risk"} ariaLabel="Confirm and send payment">
                 {riskLevel === "Verify" ? <><AlertTriangle className="w-4 h-4" /> Verify & Send</> : <><Send className="w-4 h-4" /> Confirm Send</>}
               </Button>
             </div>
@@ -369,6 +395,14 @@ export default function SendPage() {
           </Card>
         </div>
       )}
+      
+      <PinEntryModal 
+        isOpen={isPinModalOpen} 
+        onClose={() => setIsPinModalOpen(false)} 
+        onSuccess={handleConfirm}
+        title="Authorize Transfer"
+        amount={amount}
+      />
     </div>
   );
 }

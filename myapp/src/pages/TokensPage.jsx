@@ -66,22 +66,35 @@ export default function TokensPage() {
                 <Disc className="text-indigo-500 w-5 h-5" aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <p className={cls("text-[15px] font-semibold font-mono tracking-tight", T.text(dark))}>{tk.id}</p>
-                  <Badge variant={tk.status}>{tk.status === "active" ? "Active" : tk.status === "pending" ? "Expiring" : "Expired"}</Badge>
+                <div className="flex items-center gap-3 flex-wrap mb-1">
+                  <p className={cls("text-[15px] font-semibold font-mono tracking-tight", T.text(dark))}>{tk.id.slice(0,18)}...</p>
+                  <Badge variant={tk.status}>{tk.status === "active" ? "Active" : tk.status === "pending" ? "Expiring" : "Exhausted"}</Badge>
                 </div>
+                
+                {/* Partial spending indicator */}
+                <div className="flex items-center justify-between mt-3 text-sm font-medium">
+                  <span className={cls(T.muted(dark))}>Remaining Value</span>
+                  <span className={cls("font-bold text-indigo-500")} aria-label={`Remaining value: ${tk.remaining_value !== undefined ? tk.remaining_value : tk.token_value}`}>
+                     ₹{tk.remaining_value !== undefined ? Number(tk.remaining_value).toLocaleString() : Number(tk.token_value).toLocaleString()}
+                  </span>
+                </div>
+                
                 <div className="flex items-center gap-3 mt-2">
                   <div className={cls("flex-1 rounded-full h-1.5", dark ? "bg-slate-800" : "bg-slate-100")}>
-                    <div className={cls("h-1.5 rounded-full transition-all duration-500", barCls(tk.status, tk.used))} style={{ width: `${tk.used}%` }} />
+                    <div className={cls("h-1.5 rounded-full transition-all duration-500", barCls(tk.status, tk.used || 0))} style={{ width: `${tk.used || 0}%` }} />
                   </div>
-                  <span className={cls("text-xs font-medium whitespace-nowrap", T.subtle(dark))}>{tk.used}% used</span>
+                  <span className={cls("text-xs font-medium whitespace-nowrap", T.subtle(dark))}>{tk.used || 0}% used</span>
                 </div>
               </div>
-              <div className="text-right flex-shrink-0">
-                <Badge variant="default">
-                  {tk.token_value}
+              <div className="text-right flex-shrink-0 flex flex-col items-end">
+                <p className={cls("text-xs uppercase tracking-wider font-semibold mb-1", T.subtle(dark))}>Mint Value</p>
+                <Badge variant="default" className="text-sm">
+                  ₹{Number(tk.token_value).toLocaleString()}
                 </Badge>
-                <p className={cls("text-xs mt-1 font-medium", T.subtle(dark))}>Expires {tk.expiry}</p>
+                {/* Expiry Countdown */}
+                <p className={cls("text-xs mt-2 font-medium flex gap-1", T.subtle(dark))}>
+                   Expires {new Date(tk.expires_at || Date.now()).toLocaleDateString()}
+                </p>
               </div>
             </div>
           ))}

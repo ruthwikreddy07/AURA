@@ -21,6 +21,7 @@ class TokenResponse(BaseModel):
     id: str
     wallet_id: str
     token_value: Decimal
+    remaining_value: Decimal
     status: str
     sync_status: str
     nonce: int
@@ -47,6 +48,7 @@ def issue_token(payload: IssueTokenRequest, db: Session = Depends(get_db)):
         id=str(token.id),
         wallet_id=str(token.wallet_id),
         token_value=token.token_value,
+        remaining_value=token.remaining_value,
         status=token.status,
         sync_status=token.sync_status,
         nonce=token.nonce,
@@ -68,6 +70,7 @@ def get_wallet_tokens(wallet_id: str, db: Session = Depends(get_db)):
             id=str(t.id),
             wallet_id=str(t.wallet_id),
             token_value=t.token_value,
+            remaining_value=t.remaining_value,
             status=t.status,
             sync_status=t.sync_status,
             nonce=t.nonce,

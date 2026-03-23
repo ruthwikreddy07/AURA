@@ -42,3 +42,41 @@ def get_wallet_by_id(
         .filter(Wallet.id == uuid.UUID(wallet_id))
         .first()
     )
+
+
+def fund_wallet(
+    db: Session,
+    wallet_id: str,
+    amount: float,
+) -> Wallet:
+    wallet = get_wallet_by_id(db, wallet_id)
+    if not wallet:
+        raise ValueError("Wallet not found")
+    if amount <= 0:
+        raise ValueError("Amount must be greater than zero")
+        
+    wallet.balance += Decimal(str(amount))
+    db.commit()
+    db.refresh(wallet)
+    return wallet
+
+
+def withdraw_wallet(
+    db: Session,
+    wallet_id: str,
+    amount: float,
+) -> Wallet:
+    wallet = get_wallet_by_id(db, wallet_id)
+    if not wallet:
+        raise ValueError("Wallet not found")
+    if amount <= 0:
+        raise ValueError("Amount must be greater than zero")
+        
+    dec_amount = Decimal(str(amount))
+    if wallet.balance < dec_amount:
+        raise ValueError("Insufficient balance")
+        
+    wallet.balance -= dec_amount
+    db.commit()
+    db.refresh(wallet)
+    return wallet

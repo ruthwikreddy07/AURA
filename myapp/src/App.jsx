@@ -22,7 +22,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid, Wallet, Disc, ArrowRightLeft, RefreshCw, BarChart3, Settings,
-  Send, Inbox, Radio
+  Send, Inbox, Radio, Building2, User, Bell
 } from "lucide-react";
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -37,6 +37,11 @@ import SendPage from "./pages/SendPage";
 import ReceivePage from "./pages/ReceivePage";
 import ModeControlPage from "./pages/ModeControlPage";
 import SettingsPage from "./pages/SettingsPage";
+import BankPage from "./pages/BankPage";
+import ProfilePage from "./pages/ProfilePage";
+import PinSetupPage from "./pages/PinSetupPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import AppLockScreen from "./components/AppLockScreen";
 
 // Layout
 import AppLayout from "./layout/AppLayout";
@@ -46,14 +51,17 @@ import AppLayout from "./layout/AppLayout";
 // ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "overview", icon: <LayoutGrid className="w-[18px] h-[18px]" />, label: "Overview" },
+  { id: "bank", icon: <Building2 className="w-[18px] h-[18px]" />, label: "Bank Accounts" },
   { id: "wallet", icon: <Wallet className="w-[18px] h-[18px]" />, label: "Wallet" },
   { id: "tokens", icon: <Disc className="w-[18px] h-[18px]" />, label: "Offline Tokens" },
-  { id: "send", icon: <Send className="w-[18px] h-[18px]" />, label: "Send" },
+  { id: "send", icon: <Send className="w-[18px] h-[18px]" />, label: "Send money" },
   { id: "receive", icon: <Inbox className="w-[18px] h-[18px]" />, label: "Receive" },
   { id: "modecontrol", icon: <Radio className="w-[18px] h-[18px]" />, label: "Mode Control" },
   { id: "transactions", icon: <ArrowRightLeft className="w-[18px] h-[18px]" />, label: "Transactions" },
   { id: "sync", icon: <RefreshCw className="w-[18px] h-[18px]" />, label: "Sync Status" },
   { id: "analytics", icon: <BarChart3 className="w-[18px] h-[18px]" />, label: "Analytics" },
+  { id: "notifications", icon: <Bell className="w-[18px] h-[18px]" />, label: "Notifications" },
+  { id: "profile", icon: <User className="w-[18px] h-[18px]" />, label: "Profile" },
   { id: "settings", icon: <Settings className="w-[18px] h-[18px]" />, label: "Settings" },
 ];
 
@@ -223,16 +231,30 @@ export default function App() {
     return () => document.head.removeChild(style);
   }, [dark]);
 
+  const [appLocked, setAppLocked] = useState(() => {
+    return localStorage.getItem("app_lock_enabled") === "true";
+  });
+
   const theme = { dark, toggle: () => setDark(d => !d) };
+
+  if (appLocked) {
+    return (
+      <ThemeProvider>
+        <AppLockScreen onUnlock={() => setAppLocked(false)} />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/pin-setup" element={<PinSetupPage />} />
 
-        <Route path="/app" element={<AppLayout />}>
+        <Route path="/app" element={<AppLayout NAV_ITEMS={NAV_ITEMS} />}>
           <Route path="overview" element={<OverviewPage />} />
+          <Route path="bank" element={<BankPage />} />
           <Route path="wallet" element={<WalletPage />} />
           <Route path="tokens" element={<TokensPage />} />
           <Route path="send" element={<SendPage />} />
@@ -241,6 +263,8 @@ export default function App() {
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="sync" element={<SyncPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

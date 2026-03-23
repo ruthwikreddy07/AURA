@@ -1,24 +1,12 @@
 import { useTheme } from "../context/ThemeContext";
 import { T } from "../theme/themeTokens";
 import { cls } from "../utils/cls";
-import { LayoutGrid, Wallet, Disc, ArrowRightLeft, RefreshCw, BarChart3, Settings, Send, Inbox, Radio } from "lucide-react";
+import { ArrowRightLeft } from "lucide-react";
 
-const NAV_ITEMS = [
-  { id: "overview", label: "Overview", icon: <LayoutGrid className="w-4 h-4" /> },
-  { id: "wallet", label: "Wallet", icon: <Wallet className="w-4 h-4" /> },
-  { id: "tokens", label: "Tokens", icon: <Disc className="w-4 h-4" /> },
-  { id: "transactions", label: "Transactions", icon: <ArrowRightLeft className="w-4 h-4" /> },
-  { id: "sync", label: "Sync", icon: <RefreshCw className="w-4 h-4" /> },
-  { id: "analytics", label: "Analytics", icon: <BarChart3 className="w-4 h-4" /> },
-  { id: "send", label: "Send", icon: <Send className="w-4 h-4" /> },
-  { id: "receive", label: "Receive", icon: <Inbox className="w-4 h-4" /> },
-  { id: "modecontrol", label: "Mode Control", icon: <Radio className="w-4 h-4" /> },
-  { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
-];
 // ─────────────────────────────────────────────────────────────
-// SIDEBAR CONTENT
+// SIDEBAR CONTENT (NAV_ITEMS are passed via props from App.jsx)
 // ─────────────────────────────────────────────────────────────
-export function SidebarContent({ active, onNav, collapsed = false }) {
+export function SidebarContent({ active, onNav, collapsed = false, navItems = [] }) {
     const { dark } = useTheme();
     return (
         <div className="flex flex-col h-full">
@@ -38,7 +26,7 @@ export function SidebarContent({ active, onNav, collapsed = false }) {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
-                {NAV_ITEMS.map(item => (
+                {navItems.map(item => (
                     <button
                         key={item.id}
                         onClick={() => onNav(item.id)}
@@ -76,11 +64,11 @@ export function SidebarContent({ active, onNav, collapsed = false }) {
     );
 }
 
-function Sidebar({ active, onNav, collapsed, onToggle }) {
+function Sidebar({ active, onNav, collapsed, onToggle, navItems = [] }) {
     const { dark } = useTheme();
     return (
         <aside className={cls("hidden md:flex flex-col h-screen border-r sticky top-0 transition-all duration-300 z-20", T.nav(dark), collapsed ? "w-16" : "w-64")} aria-label="Sidebar">
-            <SidebarContent active={active} onNav={onNav} collapsed={collapsed} />
+            <SidebarContent active={active} onNav={onNav} collapsed={collapsed} navItems={navItems} />
             <div className={cls(
   "p-3 border-t",
   dark ? "border-slate-700" : "border-slate-200"

@@ -36,3 +36,25 @@ def authenticate_user(
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+def set_transaction_pin(
+    db: Session,
+    user: User,
+    pin: str,
+) -> None:
+    if not pin.isdigit() or len(pin) < 4:
+        raise ValueError("PIN must be at least 4 digits")
+    
+    user.transaction_pin_hash = hash_password(pin)
+    db.commit()
+    db.refresh(user)
+
+
+def verify_transaction_pin(
+    user: User,
+    pin: str,
+) -> bool:
+    if not user.transaction_pin_hash:
+        return False
+    return verify_password(pin, user.transaction_pin_hash)

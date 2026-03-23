@@ -43,6 +43,18 @@ export const loginUser = (data) =>
     body: JSON.stringify(data)
   });
 
+export const setPin = (data) =>
+  request("/auth/set-pin", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+export const verifyPin = (data) =>
+  request("/auth/verify-pin", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
 
 /* =========================
    WALLET
@@ -56,6 +68,37 @@ export const createWallet = (data) =>
 
 export const getUserWallets = (user_id) =>
   request(`/wallet/user/${user_id}`);
+
+export const fundWallet = (data) =>
+  request("/wallet/fund", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+export const withdrawWallet = (data) =>
+  request("/wallet/withdraw", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+
+/* =========================
+   BANK ACCOUNTS
+========================= */
+
+export const linkBank = (data) =>
+  request("/bank/link", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+export const getUserBanks = (user_id) =>
+  request(`/bank/user/${user_id}`);
+
+export const removeBank = (account_id) =>
+  request(`/bank/${account_id}`, {
+    method: "DELETE"
+  });
 
 
 /* =========================

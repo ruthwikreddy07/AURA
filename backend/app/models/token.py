@@ -28,6 +28,10 @@ class Token(Base):
         Numeric(precision=18, scale=2),
         nullable=False,
     )
+    remaining_value: Mapped[Decimal] = mapped_column(
+        Numeric(precision=18, scale=2),
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,

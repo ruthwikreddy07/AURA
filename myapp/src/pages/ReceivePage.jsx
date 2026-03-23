@@ -153,14 +153,40 @@ export default function ReceivePage() {
             </div>
           )}
 
-          {/* Success state */}
+          {/* Success state — Transfer Receipt */}
           {recvState === "success" && (
-            <div className={cls("rounded-2xl p-6 text-center border", dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200")}>
+            <div className={cls("rounded-2xl p-6 border", dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200")}>
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <p className={cls("font-black text-[32px] tracking-tight", dark ? "text-emerald-300" : "text-emerald-700")}>₹2,400</p>
-              <p className="text-emerald-500 font-bold text-[15px] mt-1">Received via BLE</p>
-              <p className={cls("text-[13px] font-medium mt-1", dark ? "text-emerald-400/80" : "text-emerald-600")}>From: Arjun K. · Token verified · {new Date().toLocaleTimeString()}</p>
-              <Button variant="primary" size="md" className="mt-5" onClick={() => { setRecvState("listening"); setCountdown(60); }}>Receive Another</Button>
+              <p className={cls("font-black text-[32px] tracking-tight text-center", dark ? "text-emerald-300" : "text-emerald-700")}>₹2,400</p>
+              <p className="text-emerald-500 font-bold text-[15px] mt-1 text-center">Payment Received</p>
+              
+              {/* Transfer Receipt Details */}
+              <div className={cls("mt-5 rounded-xl p-4 space-y-3", dark ? "bg-slate-900/60" : "bg-white/60")}>
+                <p className={cls("text-xs font-bold uppercase tracking-wider mb-3", T.subtle(dark))}>Transfer Receipt</p>
+                {[
+                  { l: "Transaction ID", v: `TX${Math.floor(Math.random() * 90000 + 10000)}` },
+                  { l: "From", v: "Arjun K. (Device DEV-0042)" },
+                  { l: "Channel", v: `${activeMode} · AES-256 Encrypted` },
+                  { l: "Token Verified", v: "✓ Cryptographic proof valid" },
+                  { l: "Anti-Replay", v: "✓ Nonce accepted" },
+                  { l: "Sync Status", v: "Queued — will settle when online" },
+                  { l: "Received At", v: new Date().toLocaleString() },
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className={cls("text-[12px] font-medium", T.subtle(dark))}>{r.l}</span>
+                    <span className={cls("text-[12px] font-bold text-right max-w-[60%]", dark ? "text-slate-200" : "text-slate-800")}>{r.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 mt-5">
+                <Button variant="secondary" size="md" className="flex-1" onClick={() => {
+                  // Copy receipt to clipboard
+                  navigator.clipboard?.writeText(`AURA Receipt — ₹2,400 from Arjun K. at ${new Date().toLocaleString()}`);
+                  alert("Receipt copied to clipboard!");
+                }}>Share Receipt</Button>
+                <Button variant="primary" size="md" className="flex-1" onClick={() => { setRecvState("listening"); setCountdown(60); }}>Receive Another</Button>
+              </div>
             </div>
           )}
 

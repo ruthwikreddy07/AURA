@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services import auth_service
 from app.utils.jwt import create_access_token
+from app.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -75,3 +77,31 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         is_active=user.is_active,
         access_token=token,
     )
+
+
+class PinRequest(BaseModel):
+    pin: str
+
+
+@router.post("/set-pin")
+def set_pin(
+    payload: PinRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        auth_service.set_transaction_pin(db, current_user, payload.pin)
+        return {"status": "success", "message": "Transaction PIN set successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/verify-pin")
+def verify_pin(
+    payload: PinRequest,
+    current_user: User = Depends(get_current_user),
+):
+    is_valid = auth_service.verify_transaction_pin(current_user, payload.pin)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Transaction PIN")
+    return {"status": "success"}
