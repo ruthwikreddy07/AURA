@@ -347,51 +347,68 @@ export default function LandingPage() {
       <section className="relative min-h-[92vh] flex items-center justify-center">
         <Hero3D />
         {/* Dark vignette so text is always readable */}
-        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 50%, rgba(3,0,20,0.9) 0%, rgba(3,0,20,0.5) 50%, transparent 100%)' }} />
+        <div className="absolute inset-0 z-[3] pointer-events-none" style={{ background: 'radial-gradient(ellipse 90% 80% at 30% 50%, rgba(3,0,20,0.95) 0%, rgba(3,0,20,0.4) 60%, transparent 100%)' }} />
 
         {/* Main text content */}
-        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
-            className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-indigo-500/30 bg-indigo-500/[0.08] backdrop-blur-xl mb-10">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs font-bold tracking-wider text-indigo-300">OFFLINE PAYMENTS PROTOCOL V2.0</span>
-          </motion.div>
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 grid lg:grid-cols-2 items-center gap-10">
+          <div className="text-center lg:text-left pt-20 lg:pt-0">
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-indigo-500/30 bg-indigo-500/[0.08] backdrop-blur-xl mb-8">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-bold tracking-wider text-indigo-300">OFFLINE PAYMENTS PROTOCOL V2.0</span>
+            </motion.div>
 
-          <motion.h1 initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.15 }}
-            className="text-6xl sm:text-7xl lg:text-[6rem] font-black tracking-tighter leading-[0.95] mb-8"
-            style={{ textShadow: '0 4px 40px rgba(3,0,20,0.8)' }}>
-            <span className="text-white drop-shadow-2xl">Pay Anyone.</span><br/>
-            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-2xl">Zero Internet.</span>
-          </motion.h1>
+            <motion.h1 initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.15 }}
+              className="text-6xl sm:text-7xl lg:text-[6rem] font-black tracking-tighter leading-[0.95] mb-8"
+              style={{ textShadow: '0 4px 40px rgba(3,0,20,0.8)' }}>
+              <span className="text-white drop-shadow-2xl">Pay Anyone.</span><br/>
+              <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-2xl">Zero Internet.</span>
+            </motion.h1>
 
-          <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-xl sm:text-2xl text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed mb-12">
-            Military-grade cryptography across <span className="text-white font-semibold">5 hardware channels</span> — QR, Bluetooth, NFC, Sound & Light — enabling peer-to-peer payments completely off-grid.
-          </motion.p>
+            <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
+              className="text-xl sm:text-2xl text-slate-400 font-medium leading-relaxed mb-12 max-w-xl mx-auto lg:mx-0">
+              Military-grade cryptography across <span className="text-white font-semibold">5 hardware channels</span> — QR, Bluetooth, NFC, Sound & Light — enabling peer-to-peer payments completely off-grid.
+            </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.45 }}
-            className="flex flex-wrap justify-center gap-5">
-            <button onClick={() => navigate("/auth")} className="pulse-glow px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg flex items-center gap-3 transition-all hover:scale-[1.02]">
-              Try AURA Now <ArrowRight className="w-5 h-5" />
-            </button>
-            <button onClick={() => document.getElementById("demo-area")?.scrollIntoView({ behavior: "smooth" })}
-              className="px-8 py-4 rounded-2xl font-bold text-lg flex items-center gap-3 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl transition-all hover:scale-[1.02]">
-              Watch Demo <PlayCircle className="w-5 h-5 text-indigo-400" />
-            </button>
-          </motion.div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.45 }}
+              className="flex flex-wrap justify-center lg:justify-start gap-5">
+              <button onClick={() => navigate("/auth")} className="pulse-glow px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg flex items-center gap-3 transition-all hover:scale-[1.02]">
+                Try AURA Now <ArrowRight className="w-5 h-5" />
+              </button>
+              <button onClick={() => document.getElementById("demo-area")?.scrollIntoView({ behavior: "smooth" })}
+                className="px-8 py-4 rounded-2xl font-bold text-lg flex items-center gap-3 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl transition-all hover:scale-[1.02]">
+                Watch Demo <PlayCircle className="w-5 h-5 text-indigo-400" />
+              </button>
+            </motion.div>
+          </div>
+          
+          {/* Floating UI cards orbiting the 3D element (only on desktop where layout splits) */}
+          <div className="hidden lg:block relative h-full min-h-[500px]">
+             
+             {/* Card 1: Top Left of the void */}
+             <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+               className="absolute top-10 left-0 xl:left-10 z-20 flex items-center gap-3 p-3.5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-2xl shadow-emerald-500/10">
+               <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center"><ShieldCheck className="w-4 h-4 text-emerald-400" /></div>
+               <div className="text-left"><p className="font-bold text-xs text-white">Transfer Verified</p><p className="text-[10px] text-slate-500">Offline QR · AES-256</p></div>
+             </motion.div>
+
+             {/* Card 2: Bottom Right of the void */}
+             <motion.div animate={{ y: [0, 12, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+               className="absolute bottom-20 right-0 z-20 flex items-center gap-3 p-3.5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-2xl shadow-blue-500/10">
+               <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center"><Bluetooth className="w-4 h-4 text-blue-400" /></div>
+               <div className="text-left"><p className="font-bold text-xs text-white">BLE Connected</p><p className="text-[10px] text-slate-500">Peer · AURA-002</p></div>
+             </motion.div>
+
+             {/* Card 3: Middle Left of the void (new) */}
+             <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+               className="absolute top-1/2 left-10 xl:left-24 -translate-y-1/2 z-20 flex items-center gap-3 p-3.5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-2xl shadow-violet-500/10 fade-in">
+               <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center"><Cpu className="w-4 h-4 text-violet-400" /></div>
+               <div className="text-left"><p className="font-bold text-xs text-white">Zero Trust Core</p><p className="text-[10px] text-slate-500">Risk Score: 12 (Safe)</p></div>
+             </motion.div>
+
+          </div>
         </div>
 
-        {/* Floating status cards — positioned in far corners of the section, NOT inside text area */}
-        <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="hidden xl:flex absolute top-28 left-10 z-20 items-center gap-3 p-3.5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-2xl shadow-emerald-500/10">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center"><ShieldCheck className="w-4 h-4 text-emerald-400" /></div>
-          <div className="text-left"><p className="font-bold text-xs">Transfer Verified</p><p className="text-[10px] text-slate-500">Offline QR · AES-256</p></div>
-        </motion.div>
-        <motion.div animate={{ y: [0, 12, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className="hidden xl:flex absolute bottom-28 right-10 z-20 items-center gap-3 p-3.5 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-2xl shadow-blue-500/10">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center"><Bluetooth className="w-4 h-4 text-blue-400" /></div>
-          <div className="text-left"><p className="font-bold text-xs">BLE Connected</p><p className="text-[10px] text-slate-500">Peer · 15m away</p></div>
-        </motion.div>
 
         <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity }} className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10">
           <ChevronDown className="w-6 h-6 text-slate-600" />
