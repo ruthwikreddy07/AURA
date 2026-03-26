@@ -1,7 +1,7 @@
 import { useTheme } from "../context/ThemeContext";
 import { T } from "../theme/themeTokens";
 import { cls } from "../utils/cls";
-import { createPaymentSession, submitMotionProof, encryptPacket } from "../api/api";
+import { createPaymentSession, submitMotionProof, encryptPacket, getUserWallets, getWalletTokens } from "../api/api";
 import QRCode from "react-qr-code";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
@@ -9,7 +9,7 @@ import Button from "../components/ui/Button";
 
 import { ArrowUp, Send, Gauge, CheckCircle2, X, AlertTriangle } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Skeleton } from "../components/ui/Skeleton";
 import ModeBadge from "../components/ui/ModeBadge";
 import RiskCard from "../components/ui/RiskCard";
@@ -33,8 +33,26 @@ export default function SendPage() {
   
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   
-  const senderId = "00000000-0000-0000-0000-000000000001";
+  const senderId = localStorage.getItem("user_id");
+  // In a real flow, receiverId comes from device discovery or user input
   const receiverId = "00000000-0000-0000-0000-000000000002";
+  
+  const [tokens, setTokens] = useState([]);
+
+  useEffect(() => {
+    if(!senderId) return;
+    getUserWallets(senderId)
+      .then(wallets => {
+        if(wallets.length > 0) return getWalletTokens(wallets[0].id);
+        return [];
+      })
+      .then(tkns => setTokens(tkns))
+      .catch(err => console.error(err));
+  }, [senderId]);
+
+  // Modes available on web — only QR works in browser
+  const WEB_UNAVAILABLE = ["BLE", "NFC", "Sound", "Light"];
+  const isWebUnavailable = (mode) => WEB_UNAVAILABLE.includes(mode);
 
   const handleSearch = async () => {
 
@@ -72,10 +90,24 @@ export default function SendPage() {
   setStep("progress");
   setProgressVal(0);
 
+  let tokenId = null;
+
   try {
     // ── DOUBLE-SPEND PREVENTION (Two-Phase Commit) ──
+    const requiredAmount = Number(amount.replace(/,/g, ""));
+    const validTokens = tokens.filter(t => t.status === "active" && Number(t.remaining_value !== undefined ? t.remaining_value : t.token_value) >= requiredAmount);
+    
+    if (validTokens.length === 0) {
+       alert("No single offline token in your wallet covers this exact amount. AURA currently uses strict 1:1 token settlement for offline transfers.\n\nPlease go to the Tokens page and issue a new token large enough to cover this payment.");
+       setStep("input");
+       return;
+    }
+    
+    // Auto-select optimal token (smallest remaining balance that fulfills the need) 
+    validTokens.sort((a,b) => Number(a.remaining_value !== undefined ? a.remaining_value : a.token_value) - Number(b.remaining_value !== undefined ? b.remaining_value : b.token_value));
+    tokenId = validTokens[0].id;
+    
     // Phase 1: Lock the token in localStorage BEFORE transmission
-    const tokenId = "00000000-0000-0000-0000-000000000010";
     const lockedTokens = JSON.parse(localStorage.getItem("locked_tokens") || "[]");
     if (lockedTokens.includes(tokenId)) {
       alert("This token is already being used in a pending transfer. Please wait.");
@@ -124,9 +156,10 @@ export default function SendPage() {
   } catch (err) {
     console.error("Payment error", err);
     // ── ROLLBACK: Unlock the token on failure ──
-    const locked = JSON.parse(localStorage.getItem("locked_tokens") || "[]");
-    const tokenId = "00000000-0000-0000-0000-000000000010";
-    localStorage.setItem("locked_tokens", JSON.stringify(locked.filter(t => t !== tokenId)));
+    if (tokenId) {
+      const locked = JSON.parse(localStorage.getItem("locked_tokens") || "[]");
+      localStorage.setItem("locked_tokens", JSON.stringify(locked.filter(t => t !== tokenId)));
+    }
     setStep("input");
   }
 
@@ -202,10 +235,26 @@ export default function SendPage() {
                   <span className={cls("text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg", dark ? "bg-indigo-500/15 text-indigo-400" : "bg-indigo-50 text-indigo-600")}>Auto-Selected</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {["BLE", "Sound", "QR", "Light", "NFC"].map(m => (
-                    <button key={m} onClick={() => setActiveMode(m)} aria-pressed={activeMode === m} className="focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg transition-transform active:scale-95">
-                      <ModeBadge mode={m} active={activeMode === m} />
-                    </button>
+                  {["QR", "BLE", "Sound", "Light", "NFC"].map(m => (
+                    <div key={m} className="relative">
+                      <button
+                        onClick={() => !isWebUnavailable(m) && setActiveMode(m)}
+                        aria-pressed={activeMode === m}
+                        disabled={isWebUnavailable(m)}
+                        className={cls(
+                          "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg transition-transform",
+                          isWebUnavailable(m) ? "opacity-40 cursor-not-allowed" : "active:scale-95"
+                        )}
+                      >
+                        <ModeBadge mode={m} active={activeMode === m} />
+                      </button>
+                      {isWebUnavailable(m) && (
+                        <span className={cls(
+                          "absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider whitespace-nowrap",
+                          dark ? "text-amber-400/80" : "text-amber-600"
+                        )}>Mobile Only</span>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

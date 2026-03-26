@@ -55,6 +55,15 @@ export const verifyPin = (data) =>
     body: JSON.stringify(data)
   });
 
+export const getProfile = () =>
+  request("/auth/me");
+
+export const updateProfile = (data) =>
+  request("/auth/me", {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+
 
 /* =========================
    WALLET
@@ -178,6 +187,9 @@ export const processSync = (token_id) =>
     method: "POST"
   });
 
+export const getSyncQueue = (user_id) =>
+  request(`/sync/queue/${user_id}`);
+
 
 /* =========================
    MODE PREFERENCES
@@ -208,3 +220,6 @@ export const getFraudAttempts = () =>
 
 export const getRiskDistribution = () =>
   request("/analytics/risk-distribution");
+
+export const getAlerts = (user_id) =>
+  request(`/alerts/user/${user_id}`);

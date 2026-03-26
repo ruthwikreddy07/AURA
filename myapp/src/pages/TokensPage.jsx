@@ -6,8 +6,10 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 import { Skeleton } from "../components/ui/Skeleton";
-import { PlusCircle, Disc } from "lucide-react";
-import { getUserWallets, getWalletTokens } from "../api/api";
+import { PlusCircle, Disc, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import Input from "../components/ui/Input";
+import { getUserWallets, getWalletTokens, issueToken } from "../api/api";
 import { useEffect, useState } from "react";
 
 export default function TokensPage() {
@@ -15,6 +17,11 @@ export default function TokensPage() {
   const loading = usePageLoad();
   const [wallets, setWallets] = useState([]);
   const [tokens, setTokens] = useState([]);
+  
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueAmount, setIssueAmount] = useState("");
+  const [isIssuing, setIsIssuing] = useState(false);
+
   useEffect(() => {
     const userId = localStorage.getItem("user_id");
     if (!userId) return;
@@ -33,6 +40,36 @@ export default function TokensPage() {
       })
       .catch(err => console.error(err));
   }, []);
+
+  const handleIssueToken = async (e) => {
+    e.preventDefault();
+    if (!wallets.length || !issueAmount) return;
+    setIsIssuing(true);
+    try {
+      const expDate = new Date();
+      expDate.setDate(expDate.getDate() + 7); // Default 7-day expiry
+      
+      await issueToken({
+        wallet_id: wallets[0].id,
+        token_value: Number(issueAmount),
+        expires_at: expDate.toISOString()
+      });
+      
+      alert(`Successfully issued ₹${issueAmount} standard token`);
+      setShowIssueModal(false);
+      setIssueAmount("");
+      
+      // Refresh token registry
+      const newTokens = await getWalletTokens(wallets[0].id);
+      setTokens(newTokens);
+    } catch(err) {
+      console.error("Token issue failed:", err);
+      alert(`Issuance failed: ${err.message || "Insufficient balance"}`);
+    } finally {
+      setIsIssuing(false);
+    }
+  };
+
   const barCls = (s, u) => s === "failed" ? (dark ? "bg-slate-600" : "bg-slate-300") : u > 90 ? "bg-amber-400" : "bg-indigo-500";
 
   if (loading) return <div className="p-6 space-y-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
@@ -40,10 +77,21 @@ export default function TokensPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="grid sm:grid-cols-3 gap-5">
-        {[{ label: "Active Tokens", val: 12, max: 20, bar: "bg-indigo-500" },
-        { label: "Expiring Soon", val: 3, max: 12, bar: "bg-amber-400" },
-        { label: "Exhausted", val: 5, max: 12, bar: dark ? "bg-slate-600" : "bg-slate-300" }
-        ].map((s, i) => (
+        {(() => {
+          const activeCount = tokens.filter(t => t.status === "active").length;
+          const expiringCount = tokens.filter(t => {
+            if (t.status !== "active") return false;
+            const exp = new Date(t.expires_at);
+            return (exp.getTime() - Date.now()) < 24 * 3600000; // <24h
+          }).length;
+          const exhaustedCount = tokens.filter(t => t.status === "spent" || t.status === "expired").length;
+          const total = Math.max(tokens.length, 1);
+          return [
+            { label: "Active Tokens", val: activeCount, max: total, bar: "bg-indigo-500" },
+            { label: "Expiring Soon", val: expiringCount, max: total, bar: "bg-amber-400" },
+            { label: "Exhausted", val: exhaustedCount, max: total, bar: dark ? "bg-slate-600" : "bg-slate-300" }
+          ];
+        })().map((s, i) => (
           <Card key={i} className="p-6">
             <p className={cls("text-sm font-medium", T.muted(dark))}>{s.label}</p>
             <p className={cls("text-[32px] font-bold mt-1 tracking-tight", T.text(dark))}>{s.val}</p>
@@ -57,7 +105,7 @@ export default function TokensPage() {
       <Card className="overflow-hidden">
         <div className={cls("px-6 py-5 border-b flex items-center justify-between", T.divider(dark))}>
           <p className={cls("font-semibold text-[15px]", T.text(dark))}>Token Registry</p>
-          <Button variant="primary" size="sm"><PlusCircle className="w-4 h-4" /> Issue New Token</Button>
+          <Button variant="primary" size="sm" onClick={() => setShowIssueModal(true)} disabled={wallets.length === 0}><PlusCircle className="w-4 h-4" /> Issue New Token</Button>
         </div>
         <div className="divide-y" style={{ borderColor: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }}>
           {tokens.map((tk, i) => (
@@ -100,6 +148,41 @@ export default function TokensPage() {
           ))}
         </div>
       </Card>
+
+      <AnimatePresence>
+        {showIssueModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isIssuing && setShowIssueModal(false)} />
+            
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className={cls("relative w-full max-w-sm rounded-2xl p-6 shadow-2xl overflow-hidden", dark ? "bg-slate-900 border border-slate-800" : "bg-white border border-slate-200")}>
+               
+               <button onClick={() => setShowIssueModal(false)} className={cls("absolute top-4 right-4 p-2 rounded-full", dark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500")}>
+                 <X className="w-5 h-5" />
+               </button>
+
+               <div className="flex items-center gap-3 mb-6">
+                 <div className={cls("w-10 h-10 rounded-xl flex items-center justify-center", dark ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-50 text-indigo-600")}>
+                   <Disc className="w-5 h-5" />
+                 </div>
+                 <div>
+                   <h2 className={cls("text-lg font-bold", T.text(dark))}>Issue Token</h2>
+                   <p className={cls("text-xs font-medium content", T.muted(dark))}>Convert wallet balance to offline token</p>
+                 </div>
+               </div>
+
+               <form onSubmit={handleIssueToken} className="space-y-4">
+                 <Input label="Token Amount (₹)" placeholder="e.g. 500" type="number" required value={issueAmount} onChange={e => setIssueAmount(e.target.value)} />
+                 
+                 <div className="pt-2">
+                   <Button variant="primary" type="submit" className="w-full h-11 text-[15px] group" disabled={isIssuing || wallets.length === 0}>
+                     {isIssuing ? "Issuing..." : "Confirm & Issue"}
+                   </Button>
+                 </div>
+               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "../../context/ThemeContext";
-import { T } from "../../theme/themeTokens";
-import { cls } from "../../utils/cls";
+import { useTheme } from "../context/ThemeContext";
+import { T } from "../theme/themeTokens";
+import { cls } from "../utils/cls";
 import { Lock, X, Delete } from "lucide-react";
 
 export default function PinEntryModal({ isOpen, onClose, onSuccess, title = "Enter Transaction PIN", amount = null }) {

@@ -9,6 +9,8 @@ import { useState } from "react";
 import { Skeleton } from "../components/ui/Skeleton";
 import { Bluetooth, Volume2, Sun, QrCode, Wifi, Zap, Activity, Battery, Mic, Eye, Signal, Gauge, BarChart3 } from "lucide-react";
 import ModeBadge from "../components/ui/ModeBadge";
+import Badge from "../components/ui/Badge";
+import { getModePreferences, setModePreferences } from "../api/api";
 
 function EnvironmentMetricRow({ icon, label, value, unit, pct, color, dark }) {
   const barColorMap = {
@@ -41,7 +43,15 @@ export default function ModeControlPage() {
   const loading = usePageLoad();
   const [modes, setModes] = useState({ BLE: true, Sound: false, Light: false, QR: true, NFC: true });
   const [autoSelect, setAutoSelect] = useState(true);
-  const toggleMode = key => setModes(p => ({ ...p, [key]: !p[key] }));
+
+  // Modes not available on web
+  const WEB_UNAVAILABLE = ["BLE", "NFC", "Sound", "Light"];
+  const isWebUnavailable = (mode) => WEB_UNAVAILABLE.includes(mode);
+
+  const toggleMode = key => {
+    if (isWebUnavailable(key)) return; // Can't toggle mobile-only modes on web
+    setModes(p => ({ ...p, [key]: !p[key] }));
+  };
 
   if (loading) return <div className="p-6 space-y-5"><div className="grid lg:grid-cols-3 gap-5">{[0, 1, 2].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}</div><Skeleton className="h-80 rounded-2xl" /></div>;
 
@@ -75,19 +85,26 @@ export default function ModeControlPage() {
       {/* Mode Cards grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {modeConfigs.map(mc => (
-          <Card key={mc.key} className={cls("p-5 transition-all duration-200", !modes[mc.key] && "opacity-50")}>
+          <Card key={mc.key} className={cls("p-5 transition-all duration-200", (!modes[mc.key] || isWebUnavailable(mc.key)) && "opacity-50")}>
             <div className="flex items-start justify-between mb-4">
               <div className={cls("w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner", iconBgMap[mc.color])}>
                 {mc.icon}
               </div>
-              <button
-                role="switch" aria-checked={modes[mc.key]} onClick={() => toggleMode(mc.key)}
-                aria-label={`${modes[mc.key] ? "Disable" : "Enable"} ${mc.title}`}
-                className={cls("w-10 h-5.5 h-[22px] rounded-full transition-colors duration-200 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                  modes[mc.key] ? "bg-indigo-600" : (dark ? "bg-slate-700" : "bg-slate-200"))}
-              >
-                <span className={cls("block w-[18px] h-[18px] bg-white rounded-full shadow transition-transform duration-200 mx-[1px]", modes[mc.key] ? "translate-x-[20px]" : "translate-x-0")} />
-              </button>
+              <div className="flex items-center gap-2">
+                {isWebUnavailable(mc.key) && (
+                  <Badge variant="warning" size="sm">Mobile Only</Badge>
+                )}
+                <button
+                  role="switch" aria-checked={modes[mc.key]} onClick={() => toggleMode(mc.key)}
+                  aria-label={`${modes[mc.key] ? "Disable" : "Enable"} ${mc.title}`}
+                  disabled={isWebUnavailable(mc.key)}
+                  className={cls("w-10 h-5.5 h-[22px] rounded-full transition-colors duration-200 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                    isWebUnavailable(mc.key) ? (dark ? "bg-slate-800 cursor-not-allowed" : "bg-slate-200 cursor-not-allowed") :
+                    modes[mc.key] ? "bg-indigo-600" : (dark ? "bg-slate-700" : "bg-slate-200"))}
+                >
+                  <span className={cls("block w-[18px] h-[18px] bg-white rounded-full shadow transition-transform duration-200 mx-[1px]", modes[mc.key] && !isWebUnavailable(mc.key) ? "translate-x-[20px]" : "translate-x-0")} />
+                </button>
+              </div>
             </div>
             <p className={cls("font-bold text-[14px] leading-tight", dark ? "text-slate-100" : "text-slate-900")}>{mc.title}</p>
             <p className={cls("text-[11px] font-medium mt-1 leading-snug", dark ? "text-slate-500" : "text-slate-400")}>{mc.desc}</p>
@@ -107,17 +124,20 @@ export default function ModeControlPage() {
       {/* Environment Metrics + Mode Score Dashboard */}
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="p-6">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-4">
             <Activity className="w-5 h-5 text-indigo-500" aria-hidden="true" />
             <p className={cls("font-semibold text-[15px]", dark ? "text-slate-100" : "text-slate-900")}>Environment Metrics</p>
-            <span className={cls("ml-auto text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg", dark ? "bg-emerald-500/15 text-emerald-400" : "bg-emerald-50 text-emerald-600")}>Live</span>
+            <span className={cls("ml-auto text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg", dark ? "bg-amber-500/15 text-amber-400" : "bg-amber-50 text-amber-600")}>Mobile App</span>
           </div>
-          <div className="space-y-5">
-            <EnvironmentMetricRow icon={<Battery className="w-4 h-4" />} label="Battery Level" value="84" unit="%" pct={84} color="emerald" dark={dark} />
-            <EnvironmentMetricRow icon={<Mic className="w-4 h-4" />} label="Ambient Noise" value="38" unit="dB" pct={38} color="blue" dark={dark} />
-            <EnvironmentMetricRow icon={<Eye className="w-4 h-4" />} label="Light Level" value="620" unit="lx" pct={62} color="amber" dark={dark} />
-            <EnvironmentMetricRow icon={<Signal className="w-4 h-4" />} label="BLE Signal" value="-62" unit="dBm" pct={72} color="indigo" dark={dark} />
-            <EnvironmentMetricRow icon={<Gauge className="w-4 h-4" />} label="Distance Estimate" value="24" unit="cm" pct={32} color="violet" dark={dark} />
+          <div className={cls("p-4 rounded-xl border mb-5", dark ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50/50 border-amber-200")}>
+            <p className={cls("text-[13px] font-medium", dark ? "text-amber-400" : "text-amber-700")}>📱 Environment sensors (battery, noise, BLE signal, distance) require native device APIs and are only available on the mobile app.</p>
+          </div>
+          <div className="space-y-5 opacity-40">
+            <EnvironmentMetricRow icon={<Battery className="w-4 h-4" />} label="Battery Level" value="—" unit="" pct={0} color="emerald" dark={dark} />
+            <EnvironmentMetricRow icon={<Mic className="w-4 h-4" />} label="Ambient Noise" value="—" unit="" pct={0} color="blue" dark={dark} />
+            <EnvironmentMetricRow icon={<Eye className="w-4 h-4" />} label="Light Level" value="—" unit="" pct={0} color="amber" dark={dark} />
+            <EnvironmentMetricRow icon={<Signal className="w-4 h-4" />} label="BLE Signal" value="—" unit="" pct={0} color="indigo" dark={dark} />
+            <EnvironmentMetricRow icon={<Gauge className="w-4 h-4" />} label="Distance Estimate" value="—" unit="" pct={0} color="violet" dark={dark} />
           </div>
         </Card>
 

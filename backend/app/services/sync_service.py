@@ -26,6 +26,26 @@ def enqueue_token_for_sync(
     db.refresh(entry)
     return entry
 
+def get_user_queue(db: Session, user_id: str):
+    items = db.query(SyncQueue, Token).join(Token, SyncQueue.token_id == Token.id).filter(
+        SyncQueue.user_id == uuid.UUID(user_id),
+        SyncQueue.status == "pending"
+    ).all()
+    
+    result = []
+    for queue_item, token in items:
+        # Calculate spent amount (or entire token value if not partially spent)
+        spent = float(token.token_value - token.remaining_value) if token.remaining_value < token.token_value else float(token.token_value)
+        result.append({
+            "id": str(queue_item.id),
+            "token_id": str(token.id),
+            "amount": spent,
+            "merchant": "Offline Transfer", 
+            "status": queue_item.status,
+            "created_at": queue_item.created_at
+        })
+    return result
+
 def process_sync_token(db: Session, token_id: str) -> bool:
 
     token = db.query(Token).filter(Token.id == uuid.UUID(token_id)).first()

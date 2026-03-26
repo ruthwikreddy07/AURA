@@ -2,7 +2,7 @@ import { useTheme } from "../context/ThemeContext";
 import { T } from "../theme/themeTokens";
 import { cls } from "../utils/cls";
 
-import { getUserWallets } from "../api/api";
+import { getUserWallets, getUserBanks, fundWallet, withdrawWallet } from "../api/api";
 import { useEffect, useState } from "react";
 
 import Card from "../components/ui/Card";
@@ -13,7 +13,6 @@ import { Wallet, AlertTriangle, PlusCircle, ArrowUp, ArrowDown } from "lucide-re
 import usePageLoad from "../hooks/usePageLoad";
 import { Skeleton } from "../components/ui/Skeleton";
 import PinEntryModal from "../components/PinEntryModal";
-import { fundWallet } from "../api/api";
 // ─────────────────────────────────────────────────────────────
 // PAGE: WALLET
 // ─────────────────────────────────────────────────────────────
@@ -27,6 +26,10 @@ export default function WalletPage() {
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [fundingAmount, setFundingAmount] = useState(1000);
   const [actionType, setActionType] = useState(null); // 'fund' or 'withdraw'
+  const [banks, setBanks] = useState([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [feedback, setFeedback] = useState({ type: "", msg: "" });
 
   const LIMIT = 50000;
   const allocated = Math.round((allocation / 100) * LIMIT);
@@ -40,6 +43,13 @@ export default function WalletPage() {
     getUserWallets(userId)
       .then(data => setWallets(data))
       .catch(err => console.error(err));
+
+    getUserBanks(userId)
+      .then(data => {
+         setBanks(data);
+         if(data.length > 0) setSelectedBankId(data[0].id);
+      })
+      .catch(err => console.error("Could not fetch banks", err));
   }, []);
   const walletIconCls = ["bg-indigo-50 text-indigo-600", "bg-emerald-50 text-emerald-600", "bg-amber-50 text-amber-600"];
 
@@ -51,23 +61,48 @@ export default function WalletPage() {
   );
 
   const handleActionClick = (type) => {
+    setFeedback({ type: "", msg: "" });
+    if (!selectedBankId) {
+      setFeedback({ type: "error", msg: "Please link a bank account from the Banks page first." });
+      return;
+    }
+    if (!fundingAmount || fundingAmount <= 0) return;
     setActionType(type);
     setIsPinModalOpen(true);
   };
 
   const handlePinSuccess = async (pin) => {
     setIsPinModalOpen(false);
+    setIsProcessing(true);
     
-    // In a real app we'd call fundWallet/withdrawWallet with the PIN and selected Bank Account
-    // For demo purposes, we'll just simulate a successful UI update by fetching wallets again or optimistically updating
-    alert(`Successfully ${actionType === 'fund' ? 'Added' : 'Withdrawn'} ₹${fundingAmount} using secure PIN!`);
-    
-    // Simulate refresh
-    const userId = localStorage.getItem("user_id");
-    if (userId) {
-       getUserWallets(userId)
-         .then(data => setWallets(data))
-         .catch(err => console.error(err));
+    try {
+      if (actionType === 'fund') {
+        await fundWallet({
+          wallet_id: wallets[0].id,
+          amount: fundingAmount,
+          bank_account_id: selectedBankId,
+          pin: pin
+        });
+        setFeedback({ type: "success", msg: `Successfully added ₹${fundingAmount} to your wallet!` });
+      } else {
+        await withdrawWallet({
+          wallet_id: wallets[0].id,
+          amount: fundingAmount,
+          bank_account_id: selectedBankId,
+          pin: pin
+        });
+        setFeedback({ type: "success", msg: `Successfully withdrawn ₹${fundingAmount} to your bank account!` });
+      }
+      
+      // Refresh wallet explicitly
+      const userId = localStorage.getItem("user_id");
+      const updatedWallets = await getUserWallets(userId);
+      setWallets(updatedWallets);
+    } catch(err) {
+      console.error(err);
+      setFeedback({ type: "error", msg: err.message || "Invalid PIN or insufficient balance" });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -138,6 +173,25 @@ export default function WalletPage() {
           
           <Card className="p-5 border-dashed bg-transparent" glow={false}>
             <p className={cls("text-sm font-semibold mb-3", T.text(dark))}>Wallet Actions</p>
+            
+            {feedback.msg && (
+              <div className={cls("mb-4 p-3 rounded-lg text-sm font-medium", feedback.type === "error" ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" : "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400")}>
+                {feedback.msg}
+              </div>
+            )}
+            
+            <div className="mb-4">
+              <label className={cls("block text-[13px] font-medium mb-1.5", T.muted(dark))}>Funding Source / Destination</label>
+              <select 
+                value={selectedBankId} onChange={(e) => setSelectedBankId(e.target.value)}
+                className={cls("w-full h-10 px-3 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none", dark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-300 text-slate-900")}
+              >
+                {banks.length === 0 ? <option value="">No linked banks</option> : banks.map(b => (
+                  <option key={b.id} value={b.id}>{b.bank_name} (••{b.account_number_masked.slice(-4)})</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center gap-3 mb-4">
               <span className={cls("text-xl font-bold rounded-lg px-3 py-1 bg-slate-100 dark:bg-slate-800", T.text(dark))}>₹</span>
               <input 
@@ -148,11 +202,11 @@ export default function WalletPage() {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="primary" className="flex-1 shadow-sm" onClick={() => handleActionClick('fund')}>
-                <ArrowDown className="w-4 h-4 mr-1" /> Add
+              <Button variant="primary" className="flex-1 shadow-sm" onClick={() => handleActionClick('fund')} disabled={isProcessing}>
+                {isProcessing && actionType === 'fund' ? "Processing..." : <><ArrowDown className="w-4 h-4 mr-1" /> Add</>}
               </Button>
-              <Button variant="secondary" className="flex-1 shadow-sm" onClick={() => handleActionClick('withdraw')}>
-                <ArrowUp className="w-4 h-4 mr-1" /> Withdraw
+              <Button variant="secondary" className="flex-1 shadow-sm" onClick={() => handleActionClick('withdraw')} disabled={isProcessing}>
+                {isProcessing && actionType === 'withdraw' ? "Processing..." : <><ArrowUp className="w-4 h-4 mr-1" /> Withdraw</>}
               </Button>
             </div>
           </Card>

@@ -8,6 +8,7 @@ from .risk import RiskLog
 from .user_mode_preferences import UserModePreferences
 from .payment_session import PaymentSession
 from .bank_account import BankAccount
+from .alert import Alert
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "UserModePreferences",
     "PaymentSession",
     "BankAccount",
+    "Alert",
 ]

@@ -23,6 +23,11 @@ export default function ReceivePage() {
   const [recvState, setRecvState] = useState("listening"); // listening | detecting | verifying | success
   const [countdown, setCountdown] = useState(60);
   const [activeMode, setActiveMode] = useState("QR"); // Default to QR for Phase 2
+  const [receivedAmount, setReceivedAmount] = useState(null);
+
+  // Modes available on web — only QR works in browser
+  const WEB_UNAVAILABLE = ["BLE", "NFC", "Sound"];
+  const isWebUnavailable = (mode) => WEB_UNAVAILABLE.includes(mode);
 
   useEffect(() => {
     if (recvState !== "listening") return;
@@ -157,7 +162,7 @@ export default function ReceivePage() {
           {recvState === "success" && (
             <div className={cls("rounded-2xl p-6 border", dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200")}>
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <p className={cls("font-black text-[32px] tracking-tight text-center", dark ? "text-emerald-300" : "text-emerald-700")}>₹2,400</p>
+              <p className={cls("font-black text-[32px] tracking-tight text-center", dark ? "text-emerald-300" : "text-emerald-700")}>₹{receivedAmount ? Number(receivedAmount).toLocaleString() : "—"}</p>
               <p className="text-emerald-500 font-bold text-[15px] mt-1 text-center">Payment Received</p>
               
               {/* Transfer Receipt Details */}
@@ -182,7 +187,7 @@ export default function ReceivePage() {
               <div className="flex gap-3 mt-5">
                 <Button variant="secondary" size="md" className="flex-1" onClick={() => {
                   // Copy receipt to clipboard
-                  navigator.clipboard?.writeText(`AURA Receipt — ₹2,400 from Arjun K. at ${new Date().toLocaleString()}`);
+                  navigator.clipboard?.writeText(`AURA Receipt — ₹${receivedAmount || "—"} at ${new Date().toLocaleString()}`);
                   alert("Receipt copied to clipboard!");
                 }}>Share Receipt</Button>
                 <Button variant="primary" size="md" className="flex-1" onClick={() => { setRecvState("listening"); setCountdown(60); }}>Receive Another</Button>
@@ -195,9 +200,25 @@ export default function ReceivePage() {
             <p className={cls("text-[13px] font-semibold", dark ? "text-slate-400" : "text-slate-500")}>Receiving on</p>
             <div className="flex gap-2 flex-wrap">
               {["QR", "BLE", "NFC", "Sound"].map(m => (
-                <button key={m} onClick={() => setActiveMode(m)} aria-pressed={activeMode === m} className="focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg transition-transform active:scale-95">
-                  <ModeBadge mode={m} active={activeMode === m} size="sm" />
-                </button>
+                <div key={m} className="relative">
+                  <button
+                    onClick={() => !isWebUnavailable(m) && setActiveMode(m)}
+                    aria-pressed={activeMode === m}
+                    disabled={isWebUnavailable(m)}
+                    className={cls(
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg transition-transform",
+                      isWebUnavailable(m) ? "opacity-40 cursor-not-allowed" : "active:scale-95"
+                    )}
+                  >
+                    <ModeBadge mode={m} active={activeMode === m} size="sm" />
+                  </button>
+                  {isWebUnavailable(m) && (
+                    <span className={cls(
+                      "absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider whitespace-nowrap",
+                      dark ? "text-amber-400/80" : "text-amber-600"
+                    )}>Mobile Only</span>
+                  )}
+                </div>
               ))}
             </div>
           </div>

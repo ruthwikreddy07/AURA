@@ -190,8 +190,16 @@ export default function BankPage() {
                     <Input label="UPI ID" placeholder="example@okhdfcbank" value={formData.upi_id} onChange={e => setFormData({...formData, upi_id: e.target.value})} required />
                  ) : (
                     <>
-                      <Input label="Account Number" placeholder="0000 0000 0000" type="number" required value={formData.account_number} onChange={e => setFormData({...formData, account_number: e.target.value})} />
-                      <Input label="IFSC Code" placeholder="HDFC0001234" required value={formData.ifsc} onChange={e => setFormData({...formData, ifsc: e.target.value})} />
+                      <Input label="Account Number" placeholder="0000 0000 0000" type="text" inputMode="numeric" pattern="[0-9]{9,18}" minLength={9} maxLength={18} required value={formData.account_number} onChange={e => {
+                        let val = e.target.value.replace(/\D/g, '');
+                        if (val.length > 18) val = val.slice(0, 18);
+                        setFormData({...formData, account_number: val});
+                      }} />
+                      <Input label="IFSC Code" placeholder="HDFC0001234" pattern="^[A-Z]{4}0[A-Z0-9]{6}$" minLength={11} maxLength={11} required value={formData.ifsc} onChange={e => {
+                        let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        if (val.length > 11) val = val.slice(0, 11);
+                        setFormData({...formData, ifsc: val});
+                      }} />
                     </>
                  )}
 

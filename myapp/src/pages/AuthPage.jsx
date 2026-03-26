@@ -16,6 +16,7 @@ export default function AuthPage({ onLogin }) {
   const [tab, setTab] = useState("login");
   // FIX: Controlled state for every field so typed text is visible
   const [fields, setFields] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [errorMsg, setErrorMsg] = useState("");
   const set = (k) => (e) => setFields(p => ({ ...p, [k]: e.target.value }));
   
   const handleSubmit = async (e) => {
@@ -54,11 +55,12 @@ export default function AuthPage({ onLogin }) {
 
   } catch (err) {
     console.error("Auth error:", err);
+    setErrorMsg(err.message || "Failed to authenticate. Please check your credentials.");
   }
 };
 
   // Reset fields when switching tabs
-  const switchTab = (id) => { setTab(id); setFields({ name: "", email: "", password: "", confirm: "" }); };
+  const switchTab = (id) => { setTab(id); setFields({ name: "", email: "", password: "", confirm: "" }); setErrorMsg(""); };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
@@ -89,6 +91,11 @@ export default function AuthPage({ onLogin }) {
           </div>
 
           <div id={`panel-${tab}`} role="tabpanel">
+            {errorMsg && (
+                <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[13px] font-semibold">
+                    {errorMsg}
+                </div>
+            )}
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               {tab === "register" && (
                 // FIX: Inline input with explicit visible text color — not using T.inputBg which can clash with white card

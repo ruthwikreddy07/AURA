@@ -11,12 +11,20 @@ import Badge from "../components/ui/Badge";
 
 import { Settings, ShieldCheck, Fingerprint, Clock, PlusCircle, Smartphone } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getProfile } from "../api/api";
 export default function SettingsPage() {
   const { dark } = useTheme();
   const loading = usePageLoad();
   const [toggles, setToggles] = useState({ biometric: true, autoSync: true, offlineMode: true, notifications: false, twoFA: true });
   const toggle = key => setToggles(p => ({ ...p, [key]: !p[key] }));
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    getProfile()
+      .then(data => setProfile(data))
+      .catch(err => console.error(err));
+  }, []);
 
   if (loading) return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -36,17 +44,17 @@ export default function SettingsPage() {
         <p className={cls("font-semibold text-[15px] mb-5", dark ? "text-slate-100" : "text-slate-900")}>Profile</p>
         <div className="flex items-center gap-5 mb-6">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-inner" aria-label="Profile avatar">
-            <span className="text-white text-2xl font-bold" aria-hidden="true">AK</span>
+            <span className="text-white text-2xl font-bold" aria-hidden="true">{profile ? profile.full_name.split(" ").map(n => n[0]).join("") : "??"}</span>
           </div>
           <div>
-            <p className={cls("text-[17px] font-bold tracking-tight", dark ? "text-slate-100" : "text-slate-900")}>Arjun Kumar</p>
-            <p className={cls("text-[15px] font-medium mt-0.5", dark ? "text-slate-400" : "text-slate-500")}>arjun@offpay.in · Pro Plan</p>
+            <p className={cls("text-[17px] font-bold tracking-tight", dark ? "text-slate-100" : "text-slate-900")}>{profile?.full_name || "Loading..."}</p>
+            <p className={cls("text-[15px] font-medium mt-0.5", dark ? "text-slate-400" : "text-slate-500")}>{profile?.email || ""}</p>
           </div>
           <Button variant="secondary" size="md" className="ml-auto">Edit</Button>
         </div>
         <div className="grid sm:grid-cols-2 gap-5">
-          <Input label="Full Name" placeholder="Arjun Kumar" name="full-name" />
-          <Input label="Email" placeholder="arjun@offpay.in" name="email" type="email" />
+          <Input label="Full Name" placeholder={profile?.full_name || ""} name="full-name" />
+          <Input label="Email" placeholder={profile?.email || ""} name="email" type="email" />
         </div>
       </Card>
 
@@ -132,7 +140,7 @@ export default function SettingsPage() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-5">
           <p className={cls("font-semibold text-[15px]", dark ? "text-slate-100" : "text-slate-900")}>Registered Devices</p>
-          <Button variant="secondary" size="sm"><PlusCircle className="w-4 h-4" /> Add Device</Button>
+          <Badge variant="warning" size="sm">Mobile App</Badge>
         </div>
         <div className="space-y-3" role="list">
           {[
@@ -148,12 +156,12 @@ export default function SettingsPage() {
                   <p className={cls("text-[13px] font-medium mt-0.5", dark ? "text-slate-500" : "text-slate-400")}>{d.id} · {d.time}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant={d.badge}>{d.badge === "success" ? "Active" : "Inactive"}</Badge>
-                <Button variant="ghost" size="sm" ariaLabel={`Remove ${d.name}`}>Remove</Button>
-              </div>
+              <Badge variant={d.badge}>{d.badge === "success" ? "Active" : "Inactive"}</Badge>
             </div>
           ))}
+          <div className={cls("p-3 rounded-xl border text-center", dark ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200")}>
+            <p className={cls("text-xs font-medium", dark ? "text-amber-400" : "text-amber-700")}>📱 Device management (add/remove) is available on the mobile app</p>
+          </div>
         </div>
       </Card>
 

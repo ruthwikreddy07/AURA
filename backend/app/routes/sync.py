@@ -49,6 +49,11 @@ def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/queue/{user_id}", response_model=list[dict])
+def get_queue(user_id: str, db: Session = Depends(get_db)):
+    return sync_service.get_user_queue(db=db, user_id=user_id)
+
+
 @router.post("/process/{token_id}", response_model=ProcessSyncResponse)
 def process_sync(token_id: str, db: Session = Depends(get_db)):
     try:

@@ -9,17 +9,45 @@ import { Skeleton } from "../components/ui/Skeleton";
 
 import { RefreshCw, AlertTriangle, ShieldCheck } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { getSyncQueue, processSync } from "../api/api";
 export default function SyncPage() {
     const { dark } = useTheme();
     const loading = usePageLoad();
     const [syncing, setSyncing] = useState(false);
-    const progress = 87;
-
-    const handleSync = useCallback(() => {
-        setSyncing(true);
-        setTimeout(() => setSyncing(false), 2200);
+    const [queueItems, setQueueItems] = useState([]);
+    
+    const fetchQueue = useCallback(async () => {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return;
+        try {
+            const data = await getSyncQueue(userId);
+            setQueueItems(data);
+        } catch(err) { console.error(err); }
     }, []);
+
+    useEffect(() => {
+        fetchQueue();
+    }, [fetchQueue]);
+
+    const progress = queueItems.length > 0 ? 87 : 100;
+
+    const handleSync = useCallback(async () => {
+        if (queueItems.length === 0) return;
+        setSyncing(true);
+        try {
+            for (const item of queueItems) {
+                await processSync(item.token_id);
+            }
+            await new Promise(r => setTimeout(r, 800)); // Smooth animation feel
+            await fetchQueue();
+        } catch(err) {
+            console.error("Sync error:", err);
+            alert("Failed to sync some pending transfers.");
+        } finally {
+            setSyncing(false);
+        }
+    }, [queueItems, fetchQueue]);
 
     if (loading) return (
         <div className="p-6 grid lg:grid-cols-2 gap-6">
@@ -62,8 +90,8 @@ export default function SyncPage() {
 
                     <dl className="space-y-4">
                         {[
-                            { label: "Last successful sync", val: "4 min ago", cls: T.text(dark) },
-                            { label: "Pending transactions", val: "7", cls: "text-amber-500 font-bold" },
+                            { label: "Last successful sync", val: progress === 100 ? "Just now" : "Pending items", cls: T.text(dark) },
+                            { label: "Pending transactions", val: queueItems.length.toString(), cls: queueItems.length > 0 ? "text-amber-500 font-bold" : T.text(dark) },
                             { label: "Sync interval", val: "Every 5 min", cls: T.text(dark) },
                         ].map((row, i) => (
                             <div key={i} className="flex justify-between items-center">
@@ -82,16 +110,14 @@ export default function SyncPage() {
                     <Card className="p-6">
                         <p className={cls("font-semibold text-[15px] mb-4", T.text(dark))}>Sync Queue</p>
                         <div className="space-y-3">
-                            {[
-                                { id: "TX9818", merchant: "Amazon Pay", amount: "₹2,450" },
-                                { id: "TX9814", merchant: "Metro Station", amount: "₹40" },
-                                { id: "TX9811", merchant: "Reliance Digital", amount: "₹8,999" },
-                            ].map((item, i) => (
+                            {queueItems.length === 0 ? (
+                                <p className={cls("text-sm text-center py-4 font-medium", T.muted(dark))}>All data is synced.</p>
+                            ) : queueItems.map((item, i) => (
                                 <div key={i} className={cls("flex items-center gap-4 p-4 rounded-2xl shadow-sm", dark ? "bg-slate-800/40" : "bg-slate-50")}>
                                     <RefreshCw className="text-amber-500 w-5 h-5 flex-shrink-0" aria-hidden="true" />
                                     <div className="flex-1 min-w-0">
-                                        <p className={cls("text-[15px] font-semibold tracking-tight", T.text(dark))}>{item.merchant} · {item.amount}</p>
-                                        <p className={cls("text-xs font-mono font-medium mt-0.5", T.subtle(dark))}>{item.id}</p>
+                                        <p className={cls("text-[15px] font-semibold tracking-tight", T.text(dark))}>{item.merchant} · ₹{item.amount}</p>
+                                        <p className={cls("text-xs font-mono font-medium mt-0.5", T.subtle(dark))}>{item.id.split("-")[0].toUpperCase()}</p>
                                     </div>
                                     <Badge variant="pending">Queued</Badge>
                                 </div>

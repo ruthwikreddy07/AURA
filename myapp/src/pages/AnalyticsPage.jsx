@@ -8,13 +8,43 @@ import MiniLineChart from "../components/charts/MiniLineChart";
 import { BarChart3 } from "lucide-react";
 import usePageLoad from "../hooks/usePageLoad";
 import { Skeleton } from "../components/ui/Skeleton";
-
+import { useState, useEffect } from "react";
+import { getMonthlyVolume, getModeDistribution, getFraudAttempts } from "../api/api";
 
 export default function AnalyticsPage() {
     const { dark } = useTheme();
     const loading = usePageLoad();
-    const WEEK_DATA = [12400, 18200, 9800, 22100, 15600, 28900, 19400];
-    const MONTHLY_OFF = [55, 68, 43, 72, 61, 78, 65];
+    const [WEEK_DATA, setWeekData] = useState([12400, 18200, 9800, 22100, 15600, 28900, 19400]);
+    const [MONTHLY_OFF, setMonthlyOff] = useState([55, 68, 43, 72, 61, 78, 65]);
+    const [modeStats, setModeStats] = useState([
+        { cat: "Food & Beverages", pct: 34, amount: "₹29,400" },
+        { cat: "Transportation", pct: 22, amount: "₹19,100" },
+        { cat: "Shopping", pct: 28, amount: "₹24,300" },
+        { cat: "Entertainment", pct: 16, amount: "₹13,800" },
+    ]);
+
+    useEffect(() => {
+        Promise.all([getMonthlyVolume(), getModeDistribution(), getFraudAttempts()])
+        .then(([vol, mode, fraud]) => {
+           if (vol && vol.length > 0) {
+               // Pad array if too small for a good chart
+               const vData = vol.map(v => v.total);
+               setWeekData(vData.length < 5 ? [...vData, ...vData, ...vData] : vData);
+           }
+           if (mode && mode.length > 0) {
+               const total = mode.reduce((acc, m) => acc + m.count, 0) || 1;
+               setModeStats(mode.map(m => ({
+                   cat: m.mode.toUpperCase() + " Mode",
+                   pct: Math.round((m.count / total) * 100),
+                   amount: `${m.count} txns`
+               })));
+           }
+           if (fraud && fraud.length > 0) {
+               const fData = fraud.map(f => f.count);
+               setMonthlyOff(fData.length < 5 ? [...fData, 0, 0, 0] : fData);
+           }
+        }).catch(err => console.error("Analytics fetch error:", err));
+    }, []);
 
     if (loading) return (
         <div className="p-6 space-y-6">
@@ -29,8 +59,10 @@ export default function AnalyticsPage() {
             <div className="grid lg:grid-cols-2 gap-6">
                 <Card className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <p className={cls("font-semibold text-[15px]", T.text(dark))}>Weekly Transaction Volume</p>
-                        <Badge variant="indigo">This Week</Badge>
+                        <p className={cls("font-semibold text-[15px]", T.text(dark))}>Transaction Volume (Monthly)</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="indigo">Live Data</Badge>
+                        </div>
                     </div>
                     <MiniLineChart data={WEEK_DATA} color="#10B981" gradId="wkChart" />
                     <div className="flex justify-between mt-3 px-1">
@@ -41,8 +73,10 @@ export default function AnalyticsPage() {
                 </Card>
                 <Card className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <p className={cls("font-semibold text-[15px]", T.text(dark))}>Offline Payment Ratio (%)</p>
-                        <Badge variant="success">Monthly</Badge>
+                        <p className={cls("font-semibold text-[15px]", T.text(dark))}>Fraud Engine Interventions</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="success">YTD</Badge>
+                        </div>
                     </div>
                     <MiniLineChart data={MONTHLY_OFF} color="#4F46E5" gradId="mthChart" />
                     <div className="flex justify-between mt-3 px-1">
@@ -68,14 +102,9 @@ export default function AnalyticsPage() {
             </div>
 
             <Card className="p-6">
-                <p className={cls("font-semibold text-[15px] mb-6", T.text(dark))}>Spending by Category</p>
+                <p className={cls("font-semibold text-[15px] mb-6", T.text(dark))}>Transaction Mode Distribution</p>
                 <div className="space-y-4" role="list">
-                    {[
-                        { cat: "Food & Beverages", pct: 34, amount: "₹29,400" },
-                        { cat: "Transportation", pct: 22, amount: "₹19,100" },
-                        { cat: "Shopping", pct: 28, amount: "₹24,300" },
-                        { cat: "Entertainment", pct: 16, amount: "₹13,800" },
-                    ].map((c, i) => (
+                    {modeStats.map((c, i) => (
                         <div key={i} className="flex items-center gap-5" role="listitem">
                             <span className={cls("text-[13px] font-semibold w-36 flex-shrink-0", T.muted(dark))}>{c.cat}</span>
                             <div className={cls("flex-1 rounded-full h-2.5", dark ? "bg-slate-800" : "bg-slate-100")} role="meter" aria-valuenow={c.pct} aria-valuemin={0} aria-valuemax={100}>
