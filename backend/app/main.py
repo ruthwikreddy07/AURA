@@ -16,6 +16,7 @@ from app.routes import (
     payment_packet,
     bank,
     alerts,
+    admin,
 )
 from app.config import settings
 from app.routes import simulation
@@ -76,6 +77,7 @@ app.include_router(payment_packet.router, prefix="/api/v1/payment-packet", tags=
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["simulation"])
 app.include_router(bank.router, prefix="/api/v1/bank", tags=["bank"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 
 # ── Token Expiry Background Task ──────────────────────────────
 from app.tasks.token_expiry import process_expired_tokens

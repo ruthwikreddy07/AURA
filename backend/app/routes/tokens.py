@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import token_service
+from app.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -34,7 +36,19 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/issue", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def issue_token(payload: IssueTokenRequest, db: Session = Depends(get_db)):
+def issue_token(
+    payload: IssueTokenRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Enforce KYC limits dynamically
+    kyc_limit = 100000 if current_user.kyc_status == "verified" else 5000
+    if payload.token_value > kyc_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail=f"KYC Tier Exceeded: As a {current_user.kyc_status} user, your limit is ₹{kyc_limit}."
+        )
+        
     try:
         token = token_service.issue_token(
             db=db,

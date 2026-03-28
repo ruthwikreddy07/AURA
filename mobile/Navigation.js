@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { useTheme, useColors } from "./src/context/ThemeContext";
 
 // Screens
+import WelcomeScreen from "./src/screens/WelcomeScreen";
 import AuthScreen from "./src/screens/AuthScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import SendScreen from "./src/screens/SendScreen";
@@ -22,6 +23,7 @@ import BankScreen from "./src/screens/BankScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import AppLockScreen from "./src/screens/AppLockScreen";
+import ScanWebQRScreen from "./src/screens/ScanWebQRScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,6 +33,7 @@ function MoreNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} />
+      <MoreStack.Screen name="ScanWebQR" component={ScanWebQRScreen} />
       <MoreStack.Screen name="Wallet" component={WalletScreen} />
       <MoreStack.Screen name="Tokens" component={TokensScreen} />
       <MoreStack.Screen name="ModeControl" component={ModeControlScreen} />
@@ -52,6 +55,7 @@ function MoreMenuScreen({ navigation }) {
   const c = useColors();
 
   const items = [
+    { label: "Log into Web AURA", icon: "💻", screen: "ScanWebQR" },
     { label: "Wallet", icon: "💳", screen: "Wallet" },
     { label: "Bank Accounts", icon: "🏦", screen: "BankAccounts" },
     { label: "Offline Tokens", icon: "🪙", screen: "Tokens" },
@@ -135,18 +139,24 @@ function TabNavigator() {
 export default function AppNavigation() {
   const { dark } = useTheme();
   const [locked, setLocked] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    checkAppLock();
+    checkAppLockAndToken();
   }, []);
 
-  const checkAppLock = async () => {
+  const checkAppLockAndToken = async () => {
     try {
-      const enabled = await SecureStore.getItemAsync("app_lock_enabled");
-      setLocked(enabled === "true");
+      const token = await SecureStore.getItemAsync("auth_token");
+      if (token) {
+        setHasToken(true);
+        // AURA Offline Protocol: If they have a token, the vault is locked by default.
+        // We no longer rely on a user setting to turn it off — it's a security core primitive.
+        setLocked(true);
+      }
     } catch (e) {
-      /* no lock */
+      /* ignore */
     } finally {
       setChecking(false);
     }
@@ -154,13 +164,15 @@ export default function AppNavigation() {
 
   if (checking) return null;
 
-  if (locked) {
+  // Only show AppLock if the user is actually signed in
+  if (locked && hasToken) {
     return <AppLockScreen onUnlock={() => setLocked(false)} />;
   }
 
   return (
     <NavigationContainer theme={dark ? DarkTheme : DefaultTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={hasToken ? "Main" : "Welcome"}>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="Main" component={TabNavigator} />
       </Stack.Navigator>

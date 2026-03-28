@@ -9,7 +9,6 @@
  * NOTE: Requires Expo dev build (npx expo run:android). Will NOT work in Expo Go.
  */
 
-import { BleManager } from "react-native-ble-plx";
 import { Platform, PermissionsAndroid } from "react-native";
 import { Buffer } from "buffer";
 
@@ -21,9 +20,16 @@ const AURA_DEVICE_PREFIX = "AURA-PAY";
 
 class BLEService {
   constructor() {
-    this.manager = new BleManager();
     this.connectedDevice = null;
     this.isScanning = false;
+    
+    // Prevent Web crashes: BLE PLX relies on NativeModules which are undefined in standard browsers
+    if (Platform.OS !== "web") {
+      const { BleManager } = require("react-native-ble-plx");
+      this.manager = new BleManager();
+    } else {
+      this.manager = null;
+    }
   }
 
   /* ═══════════ PERMISSIONS ═══════════ */
@@ -56,6 +62,11 @@ class BLEService {
    * @param {number} timeoutMs - scanning timeout in ms (default 10s)
    */
   scanForReceivers(onDeviceFound, timeoutMs = 10000) {
+    if (!this.manager) {
+      console.warn("BLE Scan Error: Bluetooth is not supported on the web platform.");
+      return;
+    }
+
     this.isScanning = true;
 
     this.manager.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
@@ -147,6 +158,12 @@ class BLEService {
   async startReceiving(onPacketReceived, onStatusChange = () => {}) {
     onStatusChange("advertising");
 
+    if (!this.manager) {
+      onStatusChange("error");
+      console.warn("BLE Receive Error: Bluetooth is not supported on the web platform.");
+      return;
+    }
+
     // In a real implementation, this would start a GATT server.
     // For demo purposes, we use a monitor approach:
     // The sender writes to a known characteristic, and we poll for it.
@@ -208,7 +225,9 @@ class BLEService {
   destroy() {
     this.stopScan();
     this.disconnect();
-    this.manager.destroy();
+    if (this.manager) {
+      this.manager.destroy();
+    }
   }
 }
 

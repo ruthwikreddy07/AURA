@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl } from "react-native
 import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useColors } from "../context/ThemeContext";
+import { useColors, useTheme } from "../context/ThemeContext";
 import { getUserWallet, getUserTransactions } from "../api/api";
 import Button from "../components/Button";
 import Card from "../components/Card";
@@ -11,6 +11,7 @@ import KPICard from "../components/KPICard";
 
 export default function HomeScreen({ navigation }) {
   const c = useColors();
+  const { isOffline } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [wallets, setWallets] = useState([]);
@@ -58,6 +59,16 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.avatarText, { color: c.indigo }]}>A</Text>
           </View>
         </View>
+
+        {/* Emergency Off-Grid Banner */}
+        {isOffline && (
+          <View style={[styles.emergencyBanner, { backgroundColor: c.amber + "15", borderColor: c.amber + "50" }]}>
+            <Text style={[styles.emergencyTitle, { color: c.amber }]}>⚠️ Off-Grid Mode Active</Text>
+            <Text style={[styles.emergencyText, { color: c.textSecondary }]}>
+              No network detected. You are securely reading from the local hardware vault. You can still send money via BLE or Sound.
+            </Text>
+          </View>
+        )}
 
         {/* Total Balance Card */}
         <Card style={styles.mainCard}>
@@ -142,4 +153,7 @@ const styles = StyleSheet.create({
   txTitle: { fontSize: 15, fontWeight: "700", marginBottom: 4 },
   txDate: { fontSize: 12, fontWeight: "500" },
   txAmt: { fontSize: 16, fontWeight: "800" },
+  emergencyBanner: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  emergencyTitle: { fontSize: 16, fontWeight: "800", marginBottom: 6 },
+  emergencyText: { fontSize: 13, fontWeight: "500", lineHeight: 20 },
 });

@@ -31,12 +31,35 @@ async function request(endpoint, options = {}) {
    AUTH
 ========================= */
 
-export const registerUser = (data) =>
-  request("/auth/register", {
+export const requestOtp = (data) =>
+  request("/auth/request-otp", {
     method: "POST",
     body: JSON.stringify(data)
   });
 
+export const verifyOtp = (data) =>
+  request("/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+export const completeProfile = (data) =>
+  request("/auth/complete-profile", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+export const generateQrSession = () =>
+  request("/auth/qr/generate", {
+    method: "POST"
+  });
+
+export const checkQrSession = (sessionId) =>
+  request(`/auth/qr/status/${sessionId}`, {
+    method: "GET"
+  });
+
+// Legacy login (do not use for new users)
 export const loginUser = (data) =>
   request("/auth/login", {
     method: "POST",
@@ -223,3 +246,6 @@ export const getRiskDistribution = () =>
 
 export const getAlerts = (user_id) =>
   request(`/alerts/user/${user_id}`);
+
+export const getRiskLogs = (user_id) =>
+  request(`/risk/logs/${user_id}`);

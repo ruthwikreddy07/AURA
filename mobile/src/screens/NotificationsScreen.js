@@ -1,19 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Animated, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
 
 import { useColors } from "../context/ThemeContext";
 import Card from "../components/Card";
-import Badge from "../components/Badge";
+import { getRiskLogs } from "../api/api";
 
-// Mock notifications — in production these would come from a backend push/poll endpoint
+// Base Mock notifications
 const MOCK_NOTIFICATIONS = [
-  { id: "1", type: "transfer", title: "Payment Received", body: "₹2,500 received via QR Code from User #a3f8", time: "2 min ago", read: false },
-  { id: "2", type: "sync", title: "Sync Complete", body: "3 offline transactions settled successfully.", time: "15 min ago", read: false },
-  { id: "3", type: "security", title: "New Login Detected", body: "Your account was accessed from a new device.", time: "1 hour ago", read: true },
-  { id: "4", type: "token", title: "Token Expiring Soon", body: "Token TKN-7B2F (₹1,000) expires in 24 hours.", time: "3 hours ago", read: true },
-  { id: "5", type: "transfer", title: "Payment Sent", body: "₹500 sent via BLE to User #d9c1. Queued for sync.", time: "5 hours ago", read: true },
-  { id: "6", type: "system", title: "Welcome to AURA", body: "Your account is set up. Set a transaction PIN for security.", time: "1 day ago", read: true },
+  { id: "m1", type: "system", title: "Welcome to AURA", body: "Your account is set up. Set a transaction PIN for security.", time: "1 day ago", read: true },
 ];
 
 const ICONS = {
@@ -22,6 +18,7 @@ const ICONS = {
   security: "🔐",
   token: "🪙",
   system: "📢",
+  fraud: "⚠️",
 };
 
 const BADGE_STATUS = {
@@ -30,20 +27,53 @@ const BADGE_STATUS = {
   security: "warning",
   token: "info",
   system: "info",
+  fraud: "danger",
 };
 
 export default function NotificationsScreen({ navigation }) {
   const c = useColors();
   const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
   const [refreshing, setRefreshing] = useState(false);
-  const fadeAnims = useRef(MOCK_NOTIFICATIONS.map(() => new Animated.Value(0))).current;
+  
+  // We recreate fadeAnims whenever notifications length changes (simplified for MVP)
+  const fadeAnims = useRef(notifications.map(() => new Animated.Value(0))).current;
+
+  const loadAlerts = async () => {
+    try {
+      const userId = await SecureStore.getItemAsync("user_id");
+      if (!userId) return;
+
+      const logs = await getRiskLogs(userId);
+      
+      // Filter for high-risk anomalies 
+      const fraudAlerts = logs
+        .filter(log => log.risk_score > 0.8)
+        .map(log => ({
+          id: log.id,
+          type: "fraud",
+          title: "CRITICAL: High Risk Anomaly",
+          body: `Fraud ML Engine detected abnormal offline activity (Score: ${Math.round(log.risk_score * 100)}%). Syncing paused.`,
+          time: new Date(log.created_at).toLocaleTimeString(),
+          read: false,
+        }));
+
+      setNotifications([...fraudAlerts, ...MOCK_NOTIFICATIONS]);
+      
+      // Trigger animations
+      const anims = [...fraudAlerts, ...MOCK_NOTIFICATIONS].map((_, i) =>
+        Animated.timing(fadeAnims[i] || new Animated.Value(0), { toValue: 1, duration: 300, delay: i * 60, useNativeDriver: true })
+      );
+      Animated.parallel(anims).start();
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    // Staggered fade-in animation
-    const anims = fadeAnims.map((anim, i) =>
-      Animated.timing(anim, { toValue: 1, duration: 300, delay: i * 60, useNativeDriver: true })
-    );
-    Animated.parallel(anims).start();
+    loadAlerts();
   }, []);
 
   const markAllRead = () => {
@@ -72,7 +102,7 @@ export default function NotificationsScreen({ navigation }) {
 
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }} tintColor={c.indigo} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAlerts(); }} tintColor={c.indigo} />}
       >
         {notifications.length === 0 ? (
           <Card style={{ padding: 40, alignItems: "center" }}>
@@ -93,17 +123,17 @@ export default function NotificationsScreen({ navigation }) {
                   );
                 }}
               >
-                <Card style={[styles.notifCard, !notif.read && { borderLeftWidth: 3, borderLeftColor: c.indigo }]}>
+                <Card style={[styles.notifCard, !notif.read && { borderLeftWidth: 3, borderLeftColor: notif.type === 'fraud' ? c.red : c.indigo }]}>
                   <View style={styles.notifRow}>
-                    <View style={[styles.iconBox, { backgroundColor: c[BADGE_STATUS[notif.type] === "success" ? "emerald" : BADGE_STATUS[notif.type] === "warning" ? "amber" : "indigo"] + "15" }]}>
+                    <View style={[styles.iconBox, { backgroundColor: c[BADGE_STATUS[notif.type] === "success" ? "emerald" : BADGE_STATUS[notif.type] === "warning" ? "amber" : BADGE_STATUS[notif.type] === "danger" ? "red" : "indigo"] + "15" }]}>
                       <Text style={{ fontSize: 20 }}>{ICONS[notif.type] || "📢"}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={styles.notifHeader}>
-                        <Text style={[styles.notifTitle, { color: c.text, fontWeight: notif.read ? "600" : "800" }]}>
+                        <Text style={[styles.notifTitle, { color: notif.type === 'fraud' ? c.red : c.text, fontWeight: notif.read ? "600" : "800" }]}>
                           {notif.title}
                         </Text>
-                        {!notif.read && <View style={[styles.unreadDot, { backgroundColor: c.indigo }]} />}
+                        {!notif.read && <View style={[styles.unreadDot, { backgroundColor: notif.type === 'fraud' ? c.red : c.indigo }]} />}
                       </View>
                       <Text style={[styles.notifBody, { color: c.textSecondary }]}>{notif.body}</Text>
                       <Text style={[styles.notifTime, { color: c.textMuted }]}>{notif.time}</Text>

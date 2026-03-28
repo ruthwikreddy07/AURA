@@ -17,19 +17,28 @@ class User(Base):
         default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
     )
-    email: Mapped[str] = mapped_column(
+    email: Mapped[str | None] = mapped_column(
         String(255),
         unique=True,
         index=True,
-        nullable=False,
+        nullable=True,
     )
-    password_hash: Mapped[str] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
     )
     full_name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+    )
+    device_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+    )
+    device_public_key: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -60,6 +69,12 @@ class User(Base):
         server_default="pending",
     )
     app_lock_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    is_admin: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,

@@ -1,15 +1,28 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { useColorScheme } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const systemScheme = useColorScheme();
   const [dark, setDark] = useState(systemScheme === "dark");
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    // Monitor network state globally
+    const unsubscribe = NetInfo.addEventListener(state => {
+      // In simulator, it might say connected but no internet.
+      // NetInfo.isConnected is true if there's any active network interface.
+      setIsOffline(state.isConnected === false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const toggle = () => setDark((d) => !d);
 
   return (
-    <ThemeContext.Provider value={{ dark, toggle }}>
+    <ThemeContext.Provider value={{ dark, toggle, isOffline }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -52,6 +65,18 @@ export const colors = {
 };
 
 export function useColors() {
-  const { dark } = useTheme();
-  return dark ? colors.dark : colors.light;
+  const { dark, isOffline } = useTheme();
+  const baseColors = dark ? colors.dark : colors.light;
+  
+  // ⚡ Emergency Off-Grid Mode: Systematically swap the brand accent color 
+  // from Indigo to Amber, giving the app a distinct "Warning/Offline" feel globally.
+  if (isOffline) {
+    return {
+      ...baseColors,
+      indigo: baseColors.amber, // Turn all primary buttons & accents to Amber 
+      violet: baseColors.red,
+    };
+  }
+
+  return baseColors;
 }

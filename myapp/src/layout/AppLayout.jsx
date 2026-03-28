@@ -8,11 +8,18 @@ import TopNav from "./TopNav";
 
 import { useTheme } from "../context/ThemeContext";
 import { cls } from "../utils/cls";
+import { useSessionTimeout } from "../hooks/useSessionTimeout";
 
 export default function AppLayout({ NAV_ITEMS = [] }) {
   const { dark } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Enforce 15-minute inactivity timeout for consumer sessions
+  useSessionTimeout(15, "/auth", () => {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user_id");
+  });
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);

@@ -42,6 +42,8 @@ import ProfilePage from "./pages/ProfilePage";
 import PinSetupPage from "./pages/PinSetupPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import AppLockScreen from "./components/AppLockScreen";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 
 // Layout
 import AppLayout from "./layout/AppLayout";
@@ -267,6 +269,10 @@ export default function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
+
+        {/* Admin Portal (hidden — not linked from consumer UI) */}
+        <Route path="/admin" element={<AdminLoginPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

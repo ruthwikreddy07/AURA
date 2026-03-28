@@ -47,3 +47,20 @@ def log_risk(payload: LogRiskRequest, db: Session = Depends(get_db)):
         decision=risk_log.decision,
         created_at=risk_log.created_at,
     )
+
+@router.get("/logs/{user_id}", response_model=list[RiskLogResponse])
+def get_risk_logs(user_id: str, db: Session = Depends(get_db)):
+    from app.models.risk import RiskLog
+    import uuid
+    logs = db.query(RiskLog).filter(RiskLog.user_id == uuid.UUID(user_id)).order_by(RiskLog.created_at.desc()).limit(20).all()
+    return [
+        RiskLogResponse(
+            id=str(lg.id),
+            user_id=str(lg.user_id),
+            transaction_id=str(lg.transaction_id) if lg.transaction_id is not None else None,
+            risk_score=lg.risk_score,
+            decision=lg.decision,
+            created_at=lg.created_at,
+        )
+        for lg in logs
+    ]

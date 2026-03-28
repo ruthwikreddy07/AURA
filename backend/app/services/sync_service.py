@@ -103,13 +103,25 @@ def process_sync_token(db: Session, token_id: str) -> bool:
     if token.sync_status == "pending":
 
         token.sync_status = "synced"
-
         token.status = "spent"
-
         token.spent_at = datetime.now(timezone.utc)
 
-        db.flush()
+        # AI Fraut Detection Profiling (Hackathon MVP Mock)
+        import random
+        # Tokens over 50,000 represent higher offline anomaly risk
+        base_score = random.uniform(0.75, 0.95) if token.token_value > 50000 else random.uniform(0.01, 0.15)
+        
+        owner_wallet = db.query(Wallet).filter(Wallet.id == token.wallet_id).first()
+        if owner_wallet:
+            fraud = RiskLog(
+                user_id=owner_wallet.user_id,
+                transaction_id=None,
+                risk_score=base_score,
+                decision="flagged_manual_review" if base_score > 0.8 else "auto_approved"
+            )
+            db.add(fraud)
 
+        db.flush()
         return True
 
     return False

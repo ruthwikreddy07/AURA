@@ -134,6 +134,35 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </Card>
 
+        {/* KYC Upgrade Banner */}
+        {profile.kyc_status === "pending" ? (
+          <Card style={[styles.infoCard, { backgroundColor: c.amber + "15", borderColor: c.amber + "40", marginBottom: 24 }]}>
+            <Text style={[styles.secLabel, { color: c.amber, marginBottom: 8 }]}>Standard Tier (₹5,000 Limit)</Text>
+            <Text style={{ color: c.textSecondary, fontSize: 13, marginBottom: 16 }}>
+              Upgrade your KYC to unlock the ₹1,00,000 Pro offline transaction limit by verifying your Aadhaar or PAN.
+            </Text>
+            <Button 
+              style={{ backgroundColor: c.amber }} 
+              onPress={async () => {
+                try {
+                  const res = await updateUserProfile({ kyc_status: "verified" });
+                  setProfile(res);
+                  Alert.alert("Verified!", "Pro Limits Unlocked.");
+                } catch(e) { Alert.alert("Error", e.message); }
+              }}
+            >
+              Verify Identity with Aadhaar
+            </Button>
+          </Card>
+        ) : (
+          <Card style={[styles.infoCard, { backgroundColor: c.emerald + "15", borderColor: c.emerald + "40", marginBottom: 24 }]}>
+            <Text style={[styles.secLabel, { color: c.emerald, marginBottom: 4 }]}>Pro Tier Unlocked</Text>
+            <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+              Your offline issuance limit has been permanently upgraded to ₹1,00,000.
+            </Text>
+          </Card>
+        )}
+
         {/* Personal Info */}
         <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>Personal Information</Text>
         <Card style={styles.infoCard}>

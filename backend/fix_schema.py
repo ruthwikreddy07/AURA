@@ -13,6 +13,11 @@ STMTS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(32) NOT NULL DEFAULT 'pending'",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS app_lock_enabled BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) UNIQUE",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS device_public_key VARCHAR(2048)",
+    "ALTER TABLE users ALTER COLUMN email DROP NOT NULL",
+    "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
 
     # ═══ TOKENS ═══
     "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS remaining_value NUMERIC(18,2) NOT NULL DEFAULT 0",
@@ -112,6 +117,19 @@ STMTS = [
             );
         END IF;
     END $$""",
+
+    # ═══ QR_SESSIONS ═══
+    """DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='qr_sessions') THEN
+            CREATE TABLE qr_sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                status VARCHAR(32) NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                expires_at TIMESTAMPTZ NOT NULL
+            );
+        END IF;
+    END $$""",
 ]
 
 if __name__ == "__main__":
@@ -124,4 +142,19 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"  ⚠ Skipped: {e}")
         conn.commit()
+        
+        # Seed Admin User
+        try:
+            from app.utils.hashing import hash_password
+            admin_pwd = hash_password("aura_admin")
+            conn.execute(text(f"""
+                INSERT INTO users (email, password_hash, full_name, is_admin) 
+                VALUES ('admin@aura.network', '{admin_pwd}', 'AURA Admin', true)
+                ON CONFLICT (email) DO NOTHING;
+            """))
+            conn.commit()
+            print("[+] Admin user seeded: admin@aura.network")
+        except Exception as e:
+            print(f"  ⚠ Failed to seed admin: {e}")
+            
     print(f"\n✅ Schema sync complete — {len(STMTS)} statements executed.")

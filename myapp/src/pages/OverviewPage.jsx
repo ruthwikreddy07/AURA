@@ -9,7 +9,7 @@ import { cls } from "../utils/cls";
 import { useTheme } from "../context/ThemeContext";
 import { T } from "../theme/themeTokens";
 import usePageLoad from "../hooks/usePageLoad";
-import { getUserWallets, getUserTransactions, getWalletTokens } from "../api/api";
+import { getUserWallets, getUserTransactions, getWalletTokens, getProfile } from "../api/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -26,6 +26,7 @@ export default function OverviewPage() {
   const [wallets, setWallets] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [tokens, setTokens] = useState([]);
+  const [profile, setProfile] = useState(null);
 
   const totalBalance = wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0);
   const pendingSync = transactions.filter(tx => tx.status === "initiated").length;
@@ -54,8 +55,10 @@ export default function OverviewPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        const p = await getProfile();
         const w = await getUserWallets(userId);
         const t = await getUserTransactions(userId);
+        setProfile(p);
         setWallets(w);
         setTransactions(t);
 
@@ -85,6 +88,20 @@ export default function OverviewPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+
+      {/* KYC Banner */}
+      {profile?.kyc_status === "pending" && (
+        <div className={cls("p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm", dark ? "bg-amber-900/10 border-amber-500/20 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-900")}>
+          <div>
+            <h3 className="font-bold flex items-center gap-2">⚠️ Standard Tier Active (₹5,000 Offline Limit)</h3>
+            <p className="text-sm opacity-80 mt-1">Upgrade your KYC to unlock the ₹1,00,000 Pro offline transaction limit.</p>
+          </div>
+          <Button variant="outline" className={cls("shrink-0", dark ? "border-amber-500/50 hover:bg-amber-500/20 text-amber-300" : "border-amber-300 hover:bg-amber-100")} onClick={() => navigate("/app/settings")}>
+            Verify Aadhaar
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard label="Total Balance" value={`₹${totalBalance.toLocaleString()}`} sub={`Across ${wallets.length} wallet${wallets.length !== 1 ? "s" : ""}`} icon={<Wallet className="w-5 h-5" />} color="indigo" trend={8.2} />
         <KPICard label="Token Allocation" value={`₹${tokenTotal.toLocaleString()}`} sub={`${tokenUtilPct}% utilized`} icon={<Disc className="w-5 h-5" />} color="emerald" trend={3.1} />
