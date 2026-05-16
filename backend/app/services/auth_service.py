@@ -4,7 +4,7 @@ from app.utils.hashing import hash_password, verify_password
 from app.services import otp_store
 import random
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 
 def send_twilio_sms(phone_number: str, otp: str):

@@ -7,7 +7,6 @@ Runs periodically (hourly in production) to:
 3. Credit remaining_value back to the wallet balance
 4. Create an auto-refund transaction record
 """
-import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 

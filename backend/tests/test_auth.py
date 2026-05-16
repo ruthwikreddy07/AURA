@@ -3,7 +3,7 @@ import os
 # Set testing environment variables before importing app
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["ALLOW_TEST_OTP"] = "true"
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["DATABASE_URL"] = "postgresql://postgres:CHANGE_ME@localhost:5432/aura"
 os.environ["REDIS_URL"] = "redis://localhost:6379"
 os.environ["JWT_SECRET"] = "supersecretkeythatisatleast32characterslong"
 os.environ["TOKEN_PRIVATE_KEY_PATH"] = "backend/keys/private.pem"
