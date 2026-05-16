@@ -12,4 +12,5 @@ from . import simulation
 from . import admin
 from . import bank
 from . import alerts
-from . import payments
+from . import payments
+from . import contacts
