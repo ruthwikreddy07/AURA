@@ -111,7 +111,7 @@ export default function AuthScreen({ navigation }) {
         setStep('profile');
       } else {
         await storePrivateKey(privateKeyPem);
-        await saveTokensAndRoute(res.access_token, res.user_id);
+        await saveTokensAndRoute(res.access_token, res.user_id, null, res.refresh_token);
       }
     } catch (e) { setErrorMsg(e.message || "Invalid OTP."); }
     finally { setLoading(false); setKeygenStatus(""); }
@@ -130,14 +130,15 @@ export default function AuthScreen({ navigation }) {
         app_pin: pin, device_id: deviceKeys.deviceId, device_public_key: deviceKeys.publicKeyPem,
       });
       await storePrivateKey(deviceKeys.privateKeyPem);
-      await saveTokensAndRoute(res.access_token, res.id, pin);
+      await saveTokensAndRoute(res.access_token, res.id, pin, res.refresh_token);
     } catch (e) { setErrorMsg(e.message || "Failed to complete setup."); }
     finally { setLoading(false); }
   };
 
-  const saveTokensAndRoute = async (token, userId, rawPin = null) => {
+  const saveTokensAndRoute = async (token, userId, rawPin = null, refreshToken = null) => {
     if (userId) await SecureStore.setItemAsync("user_id", userId);
     if (token) await SecureStore.setItemAsync("auth_token", token);
+    if (refreshToken) await SecureStore.setItemAsync("refresh_token", refreshToken);
     if (rawPin) await SecureStore.setItemAsync("app_lock_pin", rawPin);
     await SecureStore.setItemAsync("app_lock_enabled", "true");
     navigation.replace("Main");

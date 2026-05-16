@@ -74,7 +74,7 @@ def issue_token(
 
 
 @router.get("/wallet/{wallet_id}", response_model=list[TokenResponse])
-def get_wallet_tokens(wallet_id: str, db: Session = Depends(get_db)):
+def get_wallet_tokens(wallet_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         tokens = token_service.get_wallet_tokens(db=db, wallet_id=wallet_id)
     except ValueError as exc:

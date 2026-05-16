@@ -9,9 +9,40 @@ async function request(path, options = {}) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  
+  // Auto-refresh on 401 (expired token)
+  if (res.status === 401 && !options._isRetry) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      return request(path, { ...options, _isRetry: true });
+    }
+  }
+  
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || "Request failed");
   return data;
+}
+
+async function tryRefreshToken() {
+  try {
+    const refreshToken = await SecureStore.getItemAsync("refresh_token");
+    if (!refreshToken) return false;
+    
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    
+    if (!res.ok) return false;
+    
+    const data = await res.json();
+    await SecureStore.setItemAsync("auth_token", data.access_token);
+    await SecureStore.setItemAsync("refresh_token", data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function requestWithOfflineVault(path, vaultKey, options = {}) {
@@ -49,6 +80,8 @@ export const verifyTransactionPin = (pin) =>
 export const getUserProfile = () => requestWithOfflineVault("/auth/me", "profile");
 export const updateUserProfile = (data) =>
   request("/auth/me", { method: "PUT", body: JSON.stringify(data) });
+export const recoverPin = (data) =>
+  request("/auth/recover-pin", { method: "POST", body: JSON.stringify(data) });
 
 /* ═══ WALLET ═══ */
 export const getUserWallet = (userId) =>

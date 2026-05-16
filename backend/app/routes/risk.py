@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import risk_service
 
 router = APIRouter()
@@ -28,7 +30,7 @@ class RiskLogResponse(BaseModel):
 
 
 @router.post("/log", response_model=RiskLogResponse, status_code=status.HTTP_201_CREATED)
-def log_risk(payload: LogRiskRequest, db: Session = Depends(get_db)):
+def log_risk(payload: LogRiskRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         risk_log = risk_service.log_risk_event(
             db=db,
@@ -49,7 +51,7 @@ def log_risk(payload: LogRiskRequest, db: Session = Depends(get_db)):
     )
 
 @router.get("/logs/{user_id}", response_model=list[RiskLogResponse])
-def get_risk_logs(user_id: str, db: Session = Depends(get_db)):
+def get_risk_logs(user_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.risk import RiskLog
     import uuid
     logs = db.query(RiskLog).filter(RiskLog.user_id == uuid.UUID(user_id)).order_by(RiskLog.created_at.desc()).limit(20).all()
