@@ -198,24 +198,24 @@ class RecoverPinRequest(BaseModel):
 @router.post("/recover-pin")
 @limiter.limit("3/minute")
 def recover_pin(request: Request, payload: RecoverPinRequest, db: Session = Depends(get_db)):
-    # Re-use the OTP verification logic directly
-    stored = auth_service._otp_store.get(payload.phone_number)
+    from app.services import otp_store
     import os
     from datetime import datetime, timezone
     
+    stored = otp_store.get_otp(payload.phone_number)
     is_universal_bypass = (payload.otp == "123456" and os.getenv("ENVIRONMENT") != "production")
     
     if not is_universal_bypass:
         if not stored:
             raise HTTPException(status_code=400, detail="No OTP requested for this number")
         if datetime.now(timezone.utc) > stored["expires_at"]:
-            del auth_service._otp_store[payload.phone_number]
+            otp_store.delete_otp(payload.phone_number)
             raise HTTPException(status_code=400, detail="OTP expired")
         if stored["otp"] != payload.otp:
             raise HTTPException(status_code=401, detail="Invalid OTP provided")
-        
-        # Consume the OTP
-        del auth_service._otp_store[payload.phone_number]
+    
+    # Consume the OTP
+    otp_store.delete_otp(payload.phone_number)
         
     user = db.query(User).filter(User.phone_number == payload.phone_number).first()
     if not user:

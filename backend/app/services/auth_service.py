@@ -1,12 +1,11 @@
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.utils.hashing import hash_password, verify_password
+from app.services import otp_store
 import random
 import os
 from datetime import datetime, timedelta, timezone
 
-# Simple in-memory OTP store for MVP (in production, use Redis)
-_otp_store = {}
 
 def send_twilio_sms(phone_number: str, otp: str):
     """Attempt to send SMS via Twilio if configured."""
@@ -32,16 +31,9 @@ def send_twilio_sms(phone_number: str, otp: str):
         # Development mode
         print(f"[DEV] Twilio not configured. OTP for {phone_number} is {otp}")
 
-def _clean_expired_otps():
-    """Prevent memory leaks by cleaning up expired OTPs."""
-    now = datetime.now(timezone.utc)
-    expired_keys = [k for k, v in _otp_store.items() if v["expires_at"] < now]
-    for k in expired_keys:
-        del _otp_store[k]
-
 def request_otp(db: Session, phone_number: str) -> bool:
     """Generate a random 6-digit OTP and send via SMS gateway."""
-    _clean_expired_otps()
+    otp_store.cleanup_expired()
     
     otp = str(random.randint(100000, 999999))
     
@@ -49,17 +41,13 @@ def request_otp(db: Session, phone_number: str) -> bool:
     if os.getenv("ALLOW_TEST_OTP") == "true" and phone_number == "+10000000000":
         otp = "123456"
         
-    _otp_store[phone_number] = {
-        "otp": otp,
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
-    }
+    otp_store.store_otp(phone_number, otp, ttl_seconds=300)
     
     send_twilio_sms(phone_number, otp)
     return True
 
 def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id: str, device_public_key: str) -> tuple[User | None, bool]:
-    _clean_expired_otps()
-    stored = _otp_store.get(phone_number)
+    stored = otp_store.get_otp(phone_number)
     
     if not stored:
         raise ValueError("No OTP requested for this number")
@@ -68,13 +56,13 @@ def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id:
     
     if not is_universal_bypass:
         if datetime.now(timezone.utc) > stored["expires_at"]:
-            del _otp_store[phone_number]
+            otp_store.delete_otp(phone_number)
             raise ValueError("OTP expired")
         if stored["otp"] != otp:
             raise ValueError("Invalid OTP provided")
             
     # Consume the OTP
-    del _otp_store[phone_number]
+    otp_store.delete_otp(phone_number)
 
     user = db.query(User).filter(User.phone_number == phone_number).first()
     

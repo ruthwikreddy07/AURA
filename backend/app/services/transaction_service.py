@@ -119,13 +119,22 @@ def create_transaction(
 def get_user_transactions(
     db: Session,
     user_id: str,
+    mode: str | None = None,
+    tx_status: str | None = None,
+    date_from=None,
+    date_to=None,
+    min_amount: float | None = None,
+    max_amount: float | None = None,
+    search: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[dict]:
     uid = uuid.UUID(user_id)
 
     Sender = aliased(User)
     Receiver = aliased(User)
 
-    results = (
+    query = (
         db.query(Transaction, Token, Sender.full_name, Receiver.full_name)
         .join(Token, Transaction.token_id == Token.id)
         .outerjoin(Sender, Transaction.sender_id == Sender.id)
@@ -133,7 +142,34 @@ def get_user_transactions(
         .filter(
             (Transaction.sender_id == uid) | (Transaction.receiver_id == uid)
         )
+    )
+
+    # Apply filters
+    if mode:
+        query = query.filter(Transaction.mode == mode)
+    if tx_status:
+        query = query.filter(Transaction.status == tx_status)
+    if date_from:
+        query = query.filter(Transaction.created_at >= date_from)
+    if date_to:
+        query = query.filter(Transaction.created_at <= date_to)
+    if min_amount is not None:
+        query = query.filter(Token.token_value >= min_amount)
+    if max_amount is not None:
+        query = query.filter(Token.token_value <= max_amount)
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            Sender.full_name.ilike(search_pattern)
+            | Receiver.full_name.ilike(search_pattern)
+            | Transaction.txn_hash.ilike(search_pattern)
+        )
+
+    results = (
+        query
         .order_by(Transaction.created_at.desc())
+        .limit(limit)
+        .offset(offset)
         .all()
     )
 
@@ -154,4 +190,4 @@ def get_user_transactions(
             "created_at": txn.created_at,
         })
 
-    return transactions
+    return transactions

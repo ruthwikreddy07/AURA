@@ -1,16 +1,23 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
+from app.models.transaction import Transaction
+from app.models.token import Token
 from app.services import transaction_service
 
 router = APIRouter()
+
+# ── Transaction Limits ──
+DAILY_LIMIT = 200000    # ₹2,00,000 per day
+MONTHLY_LIMIT = 1000000  # ₹10,00,000 per month
 
 
 class CreateTransactionRequest(BaseModel):
@@ -38,8 +45,48 @@ class TransactionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _check_transaction_limits(db: Session, sender_id: str, amount: float):
+    """Enforce daily and monthly transaction caps."""
+    import uuid
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
+    uid = uuid.UUID(sender_id)
+
+    # Daily total
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    daily_total = (
+        db.query(func.coalesce(func.sum(Token.token_value), 0))
+        .join(Transaction, Transaction.token_id == Token.id)
+        .filter(Transaction.sender_id == uid, Transaction.created_at >= day_start)
+        .scalar()
+    )
+    if float(daily_total) + amount > DAILY_LIMIT:
+        raise ValueError(f"Daily transaction limit exceeded (₹{DAILY_LIMIT:,}). Today's total: ₹{float(daily_total):,.0f}")
+
+    # Monthly total
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_total = (
+        db.query(func.coalesce(func.sum(Token.token_value), 0))
+        .join(Transaction, Transaction.token_id == Token.id)
+        .filter(Transaction.sender_id == uid, Transaction.created_at >= month_start)
+        .scalar()
+    )
+    if float(monthly_total) + amount > MONTHLY_LIMIT:
+        raise ValueError(f"Monthly transaction limit exceeded (₹{MONTHLY_LIMIT:,}). This month: ₹{float(monthly_total):,.0f}")
+
+
 @router.post("/create", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Check limits before creating
+    import uuid
+    try:
+        token_uuid = uuid.UUID(payload.token_id)
+        token_obj = db.query(Token).filter(Token.id == token_uuid).first()
+        if token_obj:
+            _check_transaction_limits(db, payload.sender_id, float(token_obj.token_value))
+    except ValueError:
+        pass  # Invalid UUID format handled by service layer
+
     try:
         txn = transaction_service.create_transaction(
             db=db,
@@ -65,9 +112,28 @@ def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(
 
 
 @router.get("/user/{user_id}", response_model=list[TransactionResponse])
-def get_user_transactions(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_user_transactions(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    mode: Optional[str] = Query(None, description="Filter by transfer mode (qr, sound, light, ble, nfc)"),
+    tx_status: Optional[str] = Query(None, alias="status", description="Filter by status"),
+    date_from: Optional[datetime] = Query(None, description="From date (ISO 8601)"),
+    date_to: Optional[datetime] = Query(None, description="To date (ISO 8601)"),
+    min_amount: Optional[float] = Query(None, ge=0, description="Minimum amount"),
+    max_amount: Optional[float] = Query(None, ge=0, description="Maximum amount"),
+    search: Optional[str] = Query(None, description="Search by name or txn hash"),
+    limit: int = Query(50, ge=1, le=200, description="Max results"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+):
     try:
-        txns = transaction_service.get_user_transactions(db=db, user_id=user_id)
+        txns = transaction_service.get_user_transactions(
+            db=db, user_id=user_id,
+            mode=mode, tx_status=tx_status,
+            date_from=date_from, date_to=date_to,
+            min_amount=min_amount, max_amount=max_amount,
+            search=search, limit=limit, offset=offset,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
