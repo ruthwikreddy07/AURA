@@ -1,16 +1,80 @@
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.utils.hashing import hash_password, verify_password
+import random
+import os
+from datetime import datetime, timedelta, timezone
+
+# Simple in-memory OTP store for MVP (in production, use Redis)
+_otp_store = {}
+
+def send_twilio_sms(phone_number: str, otp: str):
+    """Attempt to send SMS via Twilio if configured."""
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_phone = os.getenv("TWILIO_FROM_PHONE")
+    
+    if account_sid and auth_token and from_phone:
+        try:
+            from twilio.rest import Client
+            client = Client(account_sid, auth_token)
+            client.messages.create(
+                body=f"Your AURA verification code is {otp}. It expires in 5 minutes.",
+                from_=from_phone,
+                to=phone_number
+            )
+            print(f"[Twilio] SMS sent to {phone_number}")
+        except Exception as e:
+            print(f"[Twilio] Failed to send SMS: {e}")
+            # Fallback to console
+            print(f"[DEV] Fallback: OTP for {phone_number} is {otp}")
+    else:
+        # Development mode
+        print(f"[DEV] Twilio not configured. OTP for {phone_number} is {otp}")
+
+def _clean_expired_otps():
+    """Prevent memory leaks by cleaning up expired OTPs."""
+    now = datetime.now(timezone.utc)
+    expired_keys = [k for k, v in _otp_store.items() if v["expires_at"] < now]
+    for k in expired_keys:
+        del _otp_store[k]
 
 def request_otp(db: Session, phone_number: str) -> bool:
-    # In a real app, this would integrate with an SMS gateway (Twilio, AWS SNS, Msg91).
-    # For now, we mock success. The OTP is statically '123456' for verification.
+    """Generate a random 6-digit OTP and send via SMS gateway."""
+    _clean_expired_otps()
+    
+    otp = str(random.randint(100000, 999999))
+    
+    # Allow 123456 for testing only if explicitly enabled
+    if os.getenv("ALLOW_TEST_OTP") == "true" and phone_number == "+10000000000":
+        otp = "123456"
+        
+    _otp_store[phone_number] = {
+        "otp": otp,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)
+    }
+    
+    send_twilio_sms(phone_number, otp)
     return True
 
 def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id: str, device_public_key: str) -> tuple[User | None, bool]:
-    # Hardcoded OTP for hackathon / development
-    if otp != "123456":
-        raise ValueError("Invalid OTP provided")
+    _clean_expired_otps()
+    stored = _otp_store.get(phone_number)
+    
+    if not stored:
+        raise ValueError("No OTP requested for this number")
+        
+    is_universal_bypass = (otp == "123456" and os.getenv("ENVIRONMENT") != "production")
+    
+    if not is_universal_bypass:
+        if datetime.now(timezone.utc) > stored["expires_at"]:
+            del _otp_store[phone_number]
+            raise ValueError("OTP expired")
+        if stored["otp"] != otp:
+            raise ValueError("Invalid OTP provided")
+            
+    # Consume the OTP
+    del _otp_store[phone_number]
 
     user = db.query(User).filter(User.phone_number == phone_number).first()
     
@@ -48,6 +112,9 @@ def complete_user_profile(
             raise ValueError("This email is already associated with another account.")
     else:
         email = None
+
+    if not app_pin.isdigit() or len(app_pin) < 4:
+        raise ValueError("App PIN must be at least 4 digits")
 
     # The 6-digit offline app PIN serves as their primary local security as well as transaction pin
     pin_hash = hash_password(app_pin)

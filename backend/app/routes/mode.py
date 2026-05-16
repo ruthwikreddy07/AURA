@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import mode_service
 
 router = APIRouter()
@@ -32,7 +34,7 @@ class ModePreferencesResponse(BaseModel):
 
 
 @router.post("/set", response_model=ModePreferencesResponse, status_code=status.HTTP_200_OK)
-def set_mode_preferences(payload: SetModePreferencesRequest, db: Session = Depends(get_db)):
+def set_mode_preferences(payload: SetModePreferencesRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         prefs = mode_service.set_user_mode_preferences(
             db=db,
@@ -59,7 +61,7 @@ def set_mode_preferences(payload: SetModePreferencesRequest, db: Session = Depen
 
 
 @router.get("/user/{user_id}", response_model=ModePreferencesResponse)
-def get_mode_preferences(user_id: str, db: Session = Depends(get_db)):
+def get_mode_preferences(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         prefs = mode_service.get_user_mode_preferences(db=db, user_id=user_id)
     except ValueError as exc:
@@ -95,7 +97,7 @@ class ModeSelectionResponse(BaseModel):
 
 
 @router.post("/select", response_model=ModeSelectionResponse)
-def select_mode(payload: ModeSelectionRequest):
+def select_mode(payload: ModeSelectionRequest, current_user: User = Depends(get_current_user)):
 
     result = mode_service.select_best_mode(
         ble_available=payload.ble_available,

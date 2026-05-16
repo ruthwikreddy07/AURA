@@ -28,7 +28,7 @@ class WalletResponse(BaseModel):
 
 
 @router.post("/create", response_model=WalletResponse, status_code=status.HTTP_201_CREATED)
-def create_wallet(payload: CreateWalletRequest, db: Session = Depends(get_db)):
+def create_wallet(payload: CreateWalletRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         wallet = wallet_service.create_wallet(
             db=db,
@@ -46,7 +46,7 @@ def create_wallet(payload: CreateWalletRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/user/{user_id}", response_model=list[WalletResponse])
-def get_user_wallets(user_id: str, db: Session = Depends(get_db)):
+def get_user_wallets(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         wallets = wallet_service.get_user_wallets(db=db, user_id=user_id)
     except ValueError as exc:

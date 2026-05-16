@@ -9,6 +9,7 @@ from .user_mode_preferences import UserModePreferences
 from .payment_session import PaymentSession
 from .bank_account import BankAccount
 from .alert import Alert
+from .qr_session import QRSession
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "PaymentSession",
     "BankAccount",
     "Alert",
+    "QRSession",
 ]

@@ -8,6 +8,8 @@ from pydantic import BaseModel
 # SECURITY: prevent replay using expired sessions
 from datetime import datetime, timezone
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import payment_session_service, transaction_service
 from app.utils.packet_crypto import decrypt_payload, encrypt_payload
 
@@ -26,7 +28,7 @@ class EncryptRequest(BaseModel):
 
 
 @router.post("/encrypt")
-def encrypt_payment_packet(payload: EncryptRequest):
+def encrypt_payment_packet(payload: EncryptRequest, current_user: User = Depends(get_current_user)):
     """
     SECURITY: helper to securely AES-encrypt the payment payload on the backend
     so the PWA doesn't need to ship heavy crypto-js libraries.
@@ -42,7 +44,7 @@ def encrypt_payment_packet(payload: EncryptRequest):
 
 
 @router.post("/submit")
-def submit_payment_packet(payload: PaymentPacketRequest, db: Session = Depends(get_db)):
+def submit_payment_packet(payload: PaymentPacketRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     SECURITY: decrypt packet and create transaction
     """

@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 
+import OfflineOutboxService from "./src/services/OfflineOutboxService";
 import { useTheme, useColors } from "./src/context/ThemeContext";
 
 // Screens
@@ -144,6 +145,8 @@ export default function AppNavigation() {
 
   useEffect(() => {
     checkAppLockAndToken();
+    OfflineOutboxService.init();
+    return () => OfflineOutboxService.destroy();
   }, []);
 
   const checkAppLockAndToken = async () => {

@@ -8,22 +8,35 @@ import { getSyncQueue } from "../api/api";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
+import OfflineOutboxService from "../services/OfflineOutboxService";
 
 export default function SyncScreen() {
   const c = useColors();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [queue, setQueue] = useState([]);
+  const [outboxStatus, setOutboxStatus] = useState({ total: 0, pending: 0, failed: 0, syncing: false });
+  const [outboxItems, setOutboxItems] = useState([]);
+  const [syncLog, setSyncLog] = useState([]);
 
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
+      // Load server-side sync queue
       const res = await getSyncQueue(userId).catch(() => [
         { id: "SYN-001", type: "offline_send", amount: 1500, status: "pending", created_at: new Date().toISOString(), retries: 0 },
         { id: "SYN-002", type: "offline_receive", amount: 800, status: "failed", created_at: new Date(Date.now() - 3600000).toISOString(), retries: 3 },
         { id: "SYN-003", type: "offline_send", amount: 2200, status: "settled", created_at: new Date(Date.now() - 7200000).toISOString(), retries: 1 },
       ]);
       setQueue(res);
+
+      // Load local outbox status
+      const status = await OfflineOutboxService.getStatus();
+      setOutboxStatus(status);
+      const items = await OfflineOutboxService.getQueue();
+      setOutboxItems(items);
+      const log = await OfflineOutboxService.getSyncLog();
+      setSyncLog(log.slice(0, 10)); // last 10
     } catch (e) {
       console.error(e);
     } finally {
@@ -34,10 +47,21 @@ export default function SyncScreen() {
 
   useEffect(() => { loadData(); }, []);
 
-  const statusColor = (s) => s === "settled" ? "success" : s === "failed" ? "error" : "warning";
+  const handleForceSync = async () => {
+    setRefreshing(true);
+    await OfflineOutboxService.drainQueue();
+    await loadData();
+  };
 
-  const pendingCount = queue.filter((q) => q.status === "pending").length;
-  const failedCount = queue.filter((q) => q.status === "failed").length;
+  const handleRetry = async (id) => {
+    await OfflineOutboxService.retryItem(id);
+    await loadData();
+  };
+
+  const statusColor = (s) => s === "settled" || s === "done" ? "success" : s === "failed" ? "error" : "warning";
+
+  const pendingCount = queue.filter((q) => q.status === "pending").length + outboxStatus.pending;
+  const failedCount = queue.filter((q) => q.status === "failed").length + outboxStatus.failed;
   const settledCount = queue.filter((q) => q.status === "settled").length;
 
   return (
@@ -67,11 +91,65 @@ export default function SyncScreen() {
           </Card>
         </View>
 
-        {/* Sync Now Button */}
-        <Button style={{ marginBottom: 24 }} onPress={loadData}>Force Sync Now</Button>
+        {/* Outbox Status Banner */}
+        {outboxStatus.total > 0 && (
+          <Card style={[styles.outboxBanner, { borderColor: c.violet + "30" }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Text style={{ fontSize: 18, marginRight: 8 }}>{outboxStatus.syncing ? "⏳" : "📦"}</Text>
+              <Text style={[styles.outboxTitle, { color: c.text }]}>
+                Local Outbox: {outboxStatus.total} item{outboxStatus.total !== 1 ? "s" : ""}
+              </Text>
+            </View>
+            <Text style={{ color: c.textSecondary, fontSize: 12, marginBottom: 4 }}>
+              {outboxStatus.syncing ? "Syncing with backend…" : `${outboxStatus.pending} pending · ${outboxStatus.failed} failed`}
+            </Text>
+          </Card>
+        )}
 
-        {/* Queue Items */}
-        <Text style={[styles.sectionTitle, { color: c.text }]}>Queue</Text>
+        {/* Sync Now Button */}
+        <Button style={{ marginBottom: 24 }} onPress={handleForceSync}>
+          {outboxStatus.syncing ? "Syncing..." : "Force Sync Now"}
+        </Button>
+
+        {/* Local Outbox Items */}
+        {outboxItems.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Local Outbox</Text>
+            {outboxItems.map((item, i) => (
+              <Card key={i} style={styles.queueCard}>
+                <View style={styles.queueHeader}>
+                  <Text style={[styles.queueId, { color: c.text }]}>{item.id}</Text>
+                  <Badge status={statusColor(item.status)} text={item.status.toUpperCase()} size="sm" />
+                </View>
+                <View style={styles.queueDetails}>
+                  <View style={styles.detailCol}>
+                    <Text style={[styles.detailLabel, { color: c.textMuted }]}>Type</Text>
+                    <Text style={[styles.detailVal, { color: c.text }]}>{item.type}</Text>
+                  </View>
+                  <View style={styles.detailCol}>
+                    <Text style={[styles.detailLabel, { color: c.textMuted }]}>Endpoint</Text>
+                    <Text style={[styles.detailVal, { color: c.text }]} numberOfLines={1}>{item.endpoint}</Text>
+                  </View>
+                  <View style={styles.detailCol}>
+                    <Text style={[styles.detailLabel, { color: c.textMuted }]}>Retries</Text>
+                    <Text style={[styles.detailVal, { color: c.text }]}>{item.retries}/{5}</Text>
+                  </View>
+                </View>
+                {item.lastError && (
+                  <Text style={{ color: c.red, fontSize: 11, marginTop: 8 }}>{item.lastError}</Text>
+                )}
+                {item.status === "failed" && (
+                  <Button variant="secondary" style={{ marginTop: 12, paddingVertical: 10 }} onPress={() => handleRetry(item.id)}>
+                    Retry
+                  </Button>
+                )}
+              </Card>
+            ))}
+          </>
+        )}
+
+        {/* Server Queue */}
+        <Text style={[styles.sectionTitle, { color: c.text, marginTop: 16 }]}>Server Queue</Text>
         {queue.length === 0 ? (
           <Text style={{ color: c.textMuted, textAlign: "center", marginTop: 20 }}>Sync queue is empty.</Text>
         ) : (
@@ -103,6 +181,24 @@ export default function SyncScreen() {
             </Card>
           ))
         )}
+
+        {/* Sync Log */}
+        {syncLog.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: c.text, marginTop: 24 }]}>Sync Log</Text>
+            {syncLog.map((entry, i) => (
+              <View key={i} style={[styles.logRow, { borderColor: c.border }]}>
+                <Text style={{ color: entry.event.includes("success") ? c.emerald : entry.event.includes("error") || entry.event.includes("failed") ? c.red : c.amber, fontSize: 11, fontWeight: "700", width: 100 }}>
+                  {entry.event}
+                </Text>
+                <Text style={{ color: c.textMuted, fontSize: 11, flex: 1 }} numberOfLines={1}>{entry.detail}</Text>
+                <Text style={{ color: c.textMuted, fontSize: 9 }}>
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -113,13 +209,11 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingBottom: 10 },
   title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
   subtitle: { fontSize: 14, fontWeight: "500", marginTop: 4 },
-  scroll: { padding: 20, paddingTop: 10 },
-
+  scroll: { padding: 20, paddingTop: 10, paddingBottom: 40 },
   summaryRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
   summaryCard: { flex: 1, padding: 16, alignItems: "center" },
   summaryVal: { fontSize: 28, fontWeight: "900" },
   summaryLabel: { fontSize: 12, fontWeight: "600", marginTop: 4 },
-
   sectionTitle: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
   queueCard: { padding: 16, marginBottom: 12 },
   queueHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
@@ -128,4 +222,7 @@ const styles = StyleSheet.create({
   detailCol: { flex: 1 },
   detailLabel: { fontSize: 11, fontWeight: "600", marginBottom: 4 },
   detailVal: { fontSize: 14, fontWeight: "700" },
+  outboxBanner: { padding: 16, marginBottom: 16 },
+  outboxTitle: { fontSize: 16, fontWeight: "800" },
+  logRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6, borderBottomWidth: 1 },
 });

@@ -63,10 +63,11 @@ def process_expired_tokens(db: Session | None = None) -> dict:
                     refund_tx = Transaction(
                         sender_id=wallet.user_id,
                         receiver_id=wallet.user_id,
-                        amount=float(remaining),
-                        status="completed",
+                        token_id=token.id,
                         mode="system",
-                        note=f"Auto-refund for expired token {str(token.id)[:8]}",
+                        risk_score=0.0,
+                        status="completed",
+                        txn_hash=f"auto-refund-{str(token.id)[:8]}-{now.isoformat()}",
                     )
                     db.add(refund_tx)
 

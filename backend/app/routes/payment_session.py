@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import payment_session_service
 
 
@@ -16,7 +18,7 @@ class CreateSessionRequest(BaseModel):
 
 
 @router.post("/create")
-def create_payment_session(payload: CreateSessionRequest, db: Session = Depends(get_db)):
+def create_payment_session(payload: CreateSessionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = payment_session_service.create_payment_session(
         db=db,
         sender_id=payload.sender_id,
@@ -36,7 +38,7 @@ class MotionProofRequest(BaseModel):
 
 
 @router.post("/motion-proof")
-def submit_motion_proof(payload: MotionProofRequest, db: Session = Depends(get_db)):
+def submit_motion_proof(payload: MotionProofRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
 
     session = payment_session_service.submit_motion_proof(
         db=db,

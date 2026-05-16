@@ -1,6 +1,7 @@
 # Dependency directories
 node_modules/
 venv/
+.venv/
 env/
 __pycache__/
 
@@ -36,3 +37,6 @@ backend/keys/*
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+
+# Reports
+AURA_PROJECT_AUDIT.md

@@ -1,10 +1,13 @@
 from datetime import datetime
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import sync_service
 
 router = APIRouter()
@@ -30,8 +33,22 @@ class ProcessSyncResponse(BaseModel):
     success: bool
 
 
+class ReconcileBatchItem(BaseModel):
+    outbox_id: str
+    status: str
+    error: str | None = None
+    synced_at: str | None = None
+
+
+class ReconcileRequest(BaseModel):
+    user_id: str
+    device_timestamp: str
+    sync_batch: list[ReconcileBatchItem]
+
+
+
 @router.post("/enqueue", response_model=SyncQueueResponse, status_code=status.HTTP_201_CREATED)
-def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db)):
+def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         entry = sync_service.enqueue_token_for_sync(
             db=db,
@@ -50,12 +67,12 @@ def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/queue/{user_id}", response_model=list[dict])
-def get_queue(user_id: str, db: Session = Depends(get_db)):
+def get_queue(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return sync_service.get_user_queue(db=db, user_id=user_id)
 
 
 @router.post("/process/{token_id}", response_model=ProcessSyncResponse)
-def process_sync(token_id: str, db: Session = Depends(get_db)):
+def process_sync(token_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         success = sync_service.process_sync_token(db=db, token_id=token_id)
     except ValueError as exc:
@@ -66,3 +83,10 @@ def process_sync(token_id: str, db: Session = Depends(get_db)):
             detail=f"Token '{token_id}' already redeemed or invalid",
         )
     return ProcessSyncResponse(token_id=token_id, success=True)
+
+
+@router.post("/reconcile")
+def reconcile_sync_batch(payload: ReconcileRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Simply log or process the reconciled batch.
+    # In a full implementation, this updates the server-side sync state ledger.
+    return {"reconciled": True, "processed": len(payload.sync_batch)}

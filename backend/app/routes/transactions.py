@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
 from app.services import transaction_service
 
 router = APIRouter()
@@ -37,7 +39,7 @@ class TransactionResponse(BaseModel):
 
 
 @router.post("/create", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
-def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(get_db)):
+def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         txn = transaction_service.create_transaction(
             db=db,
@@ -63,7 +65,7 @@ def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(
 
 
 @router.get("/user/{user_id}", response_model=list[TransactionResponse])
-def get_user_transactions(user_id: str, db: Session = Depends(get_db)):
+def get_user_transactions(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         txns = transaction_service.get_user_transactions(db=db, user_id=user_id)
     except ValueError as exc:

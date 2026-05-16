@@ -21,6 +21,11 @@ from app.routes import (
 from app.config import settings
 from app.routes import simulation
 from app.database import Base, engine
+from app.deps import get_current_admin
+from app.models.user import User
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from app.limiter import limiter
 
 # NOTE: Schema is now managed by Alembic migrations.
 # Run: py -3.12 -m alembic upgrade head
@@ -45,6 +50,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -59,7 +67,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)},
+        content={"detail": "Internal server error"},
         headers=headers,
     )
 
@@ -93,7 +101,7 @@ def run_expiry_on_startup():
 
 
 @app.post("/api/v1/admin/expire-tokens", tags=["admin"])
-def trigger_expiry():
+def trigger_expiry(admin: User = Depends(get_current_admin)):
     """Manual trigger for the token expiry auto-refund task."""
     result = process_expired_tokens()
     return result

@@ -16,6 +16,8 @@ from app.services import (
 )
 
 from app.utils.packet_crypto import encrypt_payload
+from app.deps import get_current_user
+from app.models.user import User
 from app.models.token import Token
 
 router = APIRouter()
@@ -29,7 +31,7 @@ class SimulationRequest(BaseModel):
 
 
 @router.post("/offline-payment")
-def simulate_offline_payment(payload: SimulationRequest, db: Session = Depends(get_db)):
+def simulate_offline_payment(payload: SimulationRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Simulates the full offline payment protocol:
 
