@@ -307,8 +307,7 @@ class SoundService {
         return decoded;
       } catch (decodeError) {
         console.warn("Sound decode failed:", decodeError.message);
-        onStatusChange("processed");
-        return uri;
+        throw decodeError;
       }
     } catch (error) {
       onStatusChange("error");
@@ -358,16 +357,29 @@ class SoundService {
   // ═══════════ UTILITY ═══════════
 
   async stopListening() {
+    this.isListening = false; // Stop first so listen() loop exits cleanly
     if (this.recording) {
-      try { await this.recording.stopAndUnloadAsync(); } catch (e) { /* already stopped */ }
+      try {
+        const status = await this.recording.getStatusAsync();
+        if (status.isRecording) {
+          await this.recording.stopAndUnloadAsync();
+        }
+      } catch (e) { /* already stopped or never started */ }
       this.recording = null;
     }
-    this.isListening = false;
   }
 
   stopTransmitting() { this.isTransmitting = false; }
 
-  destroy() { this.stopListening(); this.stopTransmitting(); }
+  destroy() {
+    // Must be called synchronously on unmount — fire-and-forget the async cleanup
+    this.isListening = false;
+    this.isTransmitting = false;
+    if (this.recording) {
+      this.recording.stopAndUnloadAsync().catch(() => {});
+      this.recording = null;
+    }
+  }
 }
 
 export default new SoundService();

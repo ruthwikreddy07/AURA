@@ -217,7 +217,14 @@ export default function ReceiveScreen({ navigation }) {
     if (!permission?.granted) requestPermission();
     setActiveMode("QR"); setStep("qr-scanner"); slideIn();
   };
-  const onBarcodeScanned = ({ data }) => { if (step === "qr-scanner") processPacket(data); };
+  // Guard prevents the same QR from triggering processPacket twice on rapid re-scan
+  const qrProcessedRef = useRef(false);
+  const onBarcodeScanned = ({ data }) => {
+    if (step === "qr-scanner" && !qrProcessedRef.current) {
+      qrProcessedRef.current = true;
+      processPacket(data);
+    }
+  };
 
   /* ═══ BLE ═══ */
   const handleStartBLE = async () => {
@@ -269,8 +276,15 @@ export default function ReceiveScreen({ navigation }) {
     setActiveMode("Light"); setStep("light-detect"); slideIn();
     setLightStatus("listening"); setLightStats(null);
 
+    // NOTE: Real brightness sampling must come from a camera frame processor.
+    // expo-camera does not expose per-frame brightness natively in managed workflow.
+    // In an Expo Dev Build, use expo-camera's frame processor (via react-native-vision-camera)
+    // and call LightService.addBrightnessSample(brightness) from there.
+    // The simulated interval below is a UI placeholder only — it will NOT decode real light data.
     brightnessIntervalRef.current = setInterval(() => {
-      const simulatedBrightness = Math.random() * 255;
+      // This simulates ambient noise; replace with real frame processor in dev build:
+      // cameraRef.current?.addFrameProcessor(frame => { LightService.addBrightnessSample(frame.brightness); })
+      const simulatedBrightness = Math.random() * 60 + 20; // low, non-preamble noise
       LightService.addBrightnessSample(simulatedBrightness);
     }, 10);
 
@@ -286,7 +300,7 @@ export default function ReceiveScreen({ navigation }) {
       if (LightService.lastFrameStats) setLightStats(LightService.lastFrameStats);
     } catch (e) {
       setLightStatus("error");
-      if (!e.message.includes("Insufficient")) Alert.alert("Light Error", e.message);
+      Alert.alert("Light Error", e.message);
     } finally {
       if (brightnessIntervalRef.current) { clearInterval(brightnessIntervalRef.current); brightnessIntervalRef.current = null; }
     }
