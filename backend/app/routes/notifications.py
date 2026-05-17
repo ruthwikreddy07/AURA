@@ -63,6 +63,13 @@ def send_test_notification(
     current_user: User = Depends(get_current_user),
 ):
     """Send a test notification to the current user's registered device."""
+    import os
+    if os.getenv("ENVIRONMENT") == "production":
+        raise HTTPException(
+            status_code=403,
+            detail="Test notifications are disabled in production"
+        )
+
     if not current_user.fcm_token:
         raise HTTPException(
             status_code=400,

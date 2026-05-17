@@ -68,23 +68,29 @@ def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id:
     
     if user:
         # Returning user: Key Rotation / Device Registration
-        # Deactivate all other devices for this user
         from app.models.device import Device
         
-        # Deactivate old devices
+        # Deactivate all old devices atomically
         old_devices = db.query(Device).filter(Device.user_id == user.id, Device.is_active == True).all()
         for d in old_devices:
             d.is_active = False
             d.revoked_at = datetime.now(timezone.utc)
-            
-        # Register new device
-        new_device = Device(
-            user_id=user.id,
-            device_id=device_id,
-            public_key=device_public_key,
-            is_active=True
-        )
-        db.add(new_device)
+        
+        # Check if this exact device_id already exists (re-login from same device)
+        existing_device = db.query(Device).filter(Device.device_id == device_id).first()
+        if existing_device:
+            # Re-activate instead of inserting a duplicate
+            existing_device.public_key = device_public_key
+            existing_device.is_active = True
+            existing_device.revoked_at = None
+        else:
+            new_device = Device(
+                user_id=user.id,
+                device_id=device_id,
+                public_key=device_public_key,
+                is_active=True
+            )
+            db.add(new_device)
         
         user.phone_verified = True
         db.commit()

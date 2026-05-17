@@ -13,6 +13,10 @@ export default function Button({ children, variant = "primary", onPress, disable
 
   return (
     <TouchableOpacity
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={typeof children === 'string' ? children : "Button"}
+      accessibilityState={{ disabled: !!disabled }}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}

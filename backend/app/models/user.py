@@ -1,11 +1,16 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.device import Device
+    from app.models.wallet import Wallet
 
 
 class User(Base):
@@ -35,9 +40,6 @@ class User(Base):
         String(512),
         nullable=True,
     )
-
-    devices: Mapped[list["Device"]] = relationship("Device", back_populates="user", cascade="all, delete-orphan")
-
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -63,8 +65,8 @@ class User(Base):
     kyc_status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="pending",
-        server_default="pending",
+        default="unverified",
+        server_default="unverified",
     )
     app_lock_enabled: Mapped[bool] = mapped_column(
         Boolean,
@@ -89,3 +91,7 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    # Relationships
+    wallets: Mapped[list["Wallet"]] = relationship("Wallet", back_populates="user")
+    devices: Mapped[list["Device"]] = relationship("Device", back_populates="user", cascade="all, delete-orphan")

@@ -4,9 +4,13 @@ from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Wallet(Base):
@@ -39,3 +43,5 @@ class Wallet(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+    user: Mapped["User"] = relationship("User", back_populates="wallets")

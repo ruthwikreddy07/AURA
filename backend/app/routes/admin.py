@@ -85,6 +85,12 @@ class KYCAction(BaseModel):
 @router.post("/kyc-action")
 def kyc_action(payload: KYCAction, admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     import uuid
+    ALLOWED_STATUSES = {"verified", "pending", "rejected", "unverified"}
+    if payload.new_status not in ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid KYC status. Allowed: {', '.join(ALLOWED_STATUSES)}"
+        )
     user = db.query(User).filter(User.id == uuid.UUID(payload.user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")

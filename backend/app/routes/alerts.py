@@ -1,6 +1,6 @@
 from datetime import datetime
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -21,6 +21,9 @@ class AlertResponse(BaseModel):
 
 @router.get("/user/{user_id}", response_model=list[AlertResponse])
 def get_user_alerts(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view these alerts")
+
     alerts = db.query(Alert).filter(Alert.user_id == uuid.UUID(user_id)).order_by(Alert.created_at.desc()).all()
     
     return [

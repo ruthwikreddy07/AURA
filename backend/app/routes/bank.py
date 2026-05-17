@@ -96,8 +96,14 @@ def remove_bank_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    import uuid
+    try:
+        acc_uuid = uuid.UUID(account_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid account ID")
+
     account = db.query(BankAccount).filter(
-        BankAccount.id == account_id,
+        BankAccount.id == acc_uuid,
         BankAccount.user_id == current_user.id
     ).first()
     
@@ -116,9 +122,14 @@ def set_primary_bank_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Verify the account exists and belongs to the user
+    import uuid
+    try:
+        acc_uuid = uuid.UUID(account_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid account ID")
+
     account = db.query(BankAccount).filter(
-        BankAccount.id == account_id,
+        BankAccount.id == acc_uuid,
         BankAccount.user_id == current_user.id
     ).first()
     

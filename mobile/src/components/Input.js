@@ -7,6 +7,8 @@ export default function Input({ label, value, onChangeText, placeholder, secureT
     <View style={[styles.wrapper, style]}>
       {label && <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text>}
       <TextInput
+        accessible={true}
+        accessibilityLabel={label || placeholder || "Text Input"}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

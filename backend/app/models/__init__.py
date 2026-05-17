@@ -12,6 +12,7 @@ from .alert import Alert
 from .qr_session import QRSession
 from .kyc import KYCDocument
 from .device import Device
+from .dispute import Dispute
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "QRSession",
     "KYCDocument",
     "Device",
+    "Dispute",
 ]

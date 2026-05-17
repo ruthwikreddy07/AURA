@@ -328,7 +328,7 @@ class UpdateProfileRequest(BaseModel):
     full_name: str | None = None
     phone_number: str | None = None
     app_lock_enabled: bool | None = None
-    kyc_status: str | None = None
+    # NOTE: kyc_status is intentionally excluded — only the KYC service can update it
 
 
 @router.put("/me", response_model=ProfileResponse)
@@ -343,8 +343,7 @@ def update_profile(
         current_user.phone_number = payload.phone_number
     if payload.app_lock_enabled is not None:
         current_user.app_lock_enabled = payload.app_lock_enabled
-    if payload.kyc_status is not None:
-        current_user.kyc_status = payload.kyc_status
+    # kyc_status update removed — prevent self-KYC privilege escalation
     db.commit()
     db.refresh(current_user)
     return ProfileResponse(

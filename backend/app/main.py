@@ -21,6 +21,7 @@ from app.routes import (
     contacts,
     notifications,
     kyc,
+    disputes,
 )
 from app.config import settings
 from app.routes import simulation
@@ -91,6 +92,7 @@ app.include_router(payment_session.router, prefix="/api/v1/payment-session", tag
 app.include_router(payment_packet.router, prefix="/api/v1/payment-packet", tags=["payment-packet"])
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["simulation"])
 app.include_router(kyc.router, prefix="/api/v1/kyc", tags=["KYC"])
+app.include_router(disputes.router, prefix="/api/v1/disputes", tags=["disputes"])
 app.include_router(bank.router, prefix="/api/v1/bank", tags=["bank"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])

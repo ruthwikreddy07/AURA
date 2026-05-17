@@ -46,18 +46,25 @@ class TransactionResponse(BaseModel):
 
 
 def _check_transaction_limits(db: Session, sender_id: str, amount: float):
-    """Enforce daily and monthly transaction caps."""
+    """Enforce daily and monthly transaction caps (only counting successful transactions)."""
     import uuid
     from datetime import timezone
     now = datetime.now(timezone.utc)
     uid = uuid.UUID(sender_id)
+
+    # Only count transactions that actually went through (not blocked/failed)
+    COUNTED_STATUSES = ("initiated", "completed", "chargeback_issued")
 
     # Daily total
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     daily_total = (
         db.query(func.coalesce(func.sum(Token.token_value), 0))
         .join(Transaction, Transaction.token_id == Token.id)
-        .filter(Transaction.sender_id == uid, Transaction.created_at >= day_start)
+        .filter(
+            Transaction.sender_id == uid,
+            Transaction.created_at >= day_start,
+            Transaction.status.in_(COUNTED_STATUSES),
+        )
         .scalar()
     )
     if float(daily_total) + amount > DAILY_LIMIT:
@@ -68,7 +75,11 @@ def _check_transaction_limits(db: Session, sender_id: str, amount: float):
     monthly_total = (
         db.query(func.coalesce(func.sum(Token.token_value), 0))
         .join(Transaction, Transaction.token_id == Token.id)
-        .filter(Transaction.sender_id == uid, Transaction.created_at >= month_start)
+        .filter(
+            Transaction.sender_id == uid,
+            Transaction.created_at >= month_start,
+            Transaction.status.in_(COUNTED_STATUSES),
+        )
         .scalar()
     )
     if float(monthly_total) + amount > MONTHLY_LIMIT:

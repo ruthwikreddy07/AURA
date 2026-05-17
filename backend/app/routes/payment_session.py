@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,13 @@ class CreateSessionRequest(BaseModel):
     sender_id: str
     receiver_id: str
     mode: str
+
+
+# Defined BEFORE the route that uses it
+class MotionProofRequest(BaseModel):
+    session_id: str
+    user_id: str
+    motion_hash: str
 
 
 @router.post("/create")
@@ -34,17 +41,12 @@ def create_payment_session(payload: CreateSessionRequest, db: Session = Depends(
         "session_key": session.session_key,
         "mode": session.mode,
     }
-class MotionProofRequest(BaseModel):
-    session_id: str
-    user_id: str
-    motion_hash: str
 
 
 @router.post("/motion-proof")
 def submit_motion_proof(payload: MotionProofRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if payload.user_id != str(current_user.id) and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized")
-
 
     session = payment_session_service.submit_motion_proof(
         db=db,
