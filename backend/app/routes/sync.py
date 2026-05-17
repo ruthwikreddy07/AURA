@@ -49,6 +49,8 @@ class ReconcileRequest(BaseModel):
 
 @router.post("/enqueue", response_model=SyncQueueResponse, status_code=status.HTTP_201_CREATED)
 def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if payload.user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     try:
         entry = sync_service.enqueue_token_for_sync(
             db=db,
@@ -68,6 +70,8 @@ def enqueue_token(payload: EnqueueSyncRequest, db: Session = Depends(get_db), cu
 
 @router.get("/queue/{user_id}", response_model=list[dict])
 def get_queue(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return sync_service.get_user_queue(db=db, user_id=user_id)
 
 
@@ -87,6 +91,8 @@ def process_sync(token_id: str, db: Session = Depends(get_db), current_user: Use
 
 @router.post("/reconcile")
 def reconcile_sync_batch(payload: ReconcileRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if payload.user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     # Simply log or process the reconciled batch.
     # In a full implementation, this updates the server-side sync state ledger.
     return {"reconciled": True, "processed": len(payload.sync_batch)}

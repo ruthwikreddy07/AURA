@@ -29,6 +29,8 @@ class WalletResponse(BaseModel):
 
 @router.post("/create", response_model=WalletResponse, status_code=status.HTTP_201_CREATED)
 def create_wallet(payload: CreateWalletRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if payload.user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     try:
         wallet = wallet_service.create_wallet(
             db=db,
@@ -47,6 +49,8 @@ def create_wallet(payload: CreateWalletRequest, db: Session = Depends(get_db), c
 
 @router.get("/user/{user_id}", response_model=list[WalletResponse])
 def get_user_wallets(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     try:
         wallets = wallet_service.get_user_wallets(db=db, user_id=user_id)
     except ValueError as exc:
@@ -78,6 +82,11 @@ def fund_wallet(
     # Verify transaction PIN before funding
     if not verify_transaction_pin(current_user, payload.pin):
         raise HTTPException(status_code=403, detail="Invalid transaction PIN")
+        
+    wallet = wallet_service.get_wallet_by_id(db, payload.wallet_id)
+    if not wallet or str(wallet.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized for this wallet")
+        
     try:
         wallet = wallet_service.fund_wallet(db, payload.wallet_id, payload.amount)
     except ValueError as exc:
@@ -106,6 +115,11 @@ def withdraw_wallet(
     # Verify transaction PIN before withdrawal
     if not verify_transaction_pin(current_user, payload.pin):
         raise HTTPException(status_code=403, detail="Invalid transaction PIN")
+        
+    wallet = wallet_service.get_wallet_by_id(db, payload.wallet_id)
+    if not wallet or str(wallet.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized for this wallet")
+        
     try:
         wallet = wallet_service.withdraw_wallet(db, payload.wallet_id, payload.amount)
     except ValueError as exc:

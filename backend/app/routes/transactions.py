@@ -77,15 +77,25 @@ def _check_transaction_limits(db: Session, sender_id: str, amount: float):
 
 @router.post("/create", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Auth check: caller must be sender or receiver
+    if str(current_user.id) not in (payload.sender_id, payload.receiver_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to create this transaction")
+
     # Check limits before creating
     import uuid
     try:
         token_uuid = uuid.UUID(payload.token_id)
+    except ValueError:
+        token_uuid = None
+        
+    if token_uuid:
         token_obj = db.query(Token).filter(Token.id == token_uuid).first()
         if token_obj:
-            _check_transaction_limits(db, payload.sender_id, float(token_obj.token_value))
-    except ValueError:
-        pass  # Invalid UUID format handled by service layer
+            try:
+                _check_transaction_limits(db, payload.sender_id, float(token_obj.token_value))
+            except ValueError as limit_err:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(limit_err))
+
 
     try:
         txn = transaction_service.create_transaction(
@@ -126,6 +136,9 @@ def get_user_transactions(
     limit: int = Query(50, ge=1, le=200, description="Max results"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
+    if str(current_user.id) != user_id and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view these transactions")
+        
     try:
         txns = transaction_service.get_user_transactions(
             db=db, user_id=user_id,

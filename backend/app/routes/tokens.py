@@ -41,6 +41,11 @@ def issue_token(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from app.services import wallet_service
+    wallet = wallet_service.get_wallet_by_id(db, payload.wallet_id)
+    if not wallet or (str(wallet.user_id) != str(current_user.id) and not current_user.is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this wallet")
+        
     # Enforce KYC limits dynamically
     kyc_limit = 100000 if current_user.kyc_status == "verified" else 5000
     if payload.token_value > kyc_limit:
@@ -75,6 +80,11 @@ def issue_token(
 
 @router.get("/wallet/{wallet_id}", response_model=list[TokenResponse])
 def get_wallet_tokens(wallet_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services import wallet_service
+    wallet = wallet_service.get_wallet_by_id(db, wallet_id)
+    if not wallet or (str(wallet.user_id) != str(current_user.id) and not current_user.is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this wallet")
+        
     try:
         tokens = token_service.get_wallet_tokens(db=db, wallet_id=wallet_id)
     except ValueError as exc:
