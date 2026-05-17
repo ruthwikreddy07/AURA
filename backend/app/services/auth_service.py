@@ -67,9 +67,25 @@ def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id:
     user = db.query(User).filter(User.phone_number == phone_number).first()
     
     if user:
-        # Returning user: Update their device credentials
-        user.device_id = device_id
-        user.device_public_key = device_public_key
+        # Returning user: Key Rotation / Device Registration
+        # Deactivate all other devices for this user
+        from app.models.device import Device
+        
+        # Deactivate old devices
+        old_devices = db.query(Device).filter(Device.user_id == user.id, Device.is_active == True).all()
+        for d in old_devices:
+            d.is_active = False
+            d.revoked_at = datetime.now(timezone.utc)
+            
+        # Register new device
+        new_device = Device(
+            user_id=user.id,
+            device_id=device_id,
+            public_key=device_public_key,
+            is_active=True
+        )
+        db.add(new_device)
+        
         user.phone_verified = True
         db.commit()
         db.refresh(user)
@@ -118,12 +134,22 @@ def complete_user_profile(
         email=email,
         transaction_pin_hash=pin_hash,
         phone_verified=True,
-        device_id=device_id,
-        device_public_key=device_public_key,
     )
     
     db.add(new_user)
     db.flush()
+    db.refresh(new_user)
+    
+    # Create the active device
+    from app.models.device import Device
+    device = Device(
+        user_id=new_user.id,
+        device_id=device_id,
+        public_key=device_public_key,
+        is_active=True
+    )
+    db.add(device)
+    db.commit()
     db.refresh(new_user)
     
     # Consume the verification token

@@ -31,19 +31,13 @@ class User(Base):
         String(255),
         nullable=False,
     )
-    device_id: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        unique=True,
-    )
-    device_public_key: Mapped[str | None] = mapped_column(
-        String(2048),
-        nullable=True,
-    )
     fcm_token: Mapped[str | None] = mapped_column(
         String(512),
         nullable=True,
     )
+
+    devices: Mapped[list["Device"]] = relationship("Device", back_populates="user", cascade="all, delete-orphan")
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

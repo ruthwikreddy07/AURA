@@ -10,6 +10,8 @@ from .payment_session import PaymentSession
 from .bank_account import BankAccount
 from .alert import Alert
 from .qr_session import QRSession
+from .kyc import KYCDocument
+from .device import Device
 
 __all__ = [
     "User",
@@ -24,4 +26,6 @@ __all__ = [
     "BankAccount",
     "Alert",
     "QRSession",
+    "KYCDocument",
+    "Device",
 ]

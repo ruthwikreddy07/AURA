@@ -137,6 +137,18 @@ def create_transaction(
                 amount=amount,
                 receiver_name=receiver_name,
             )
+            
+        # Send Email Receipt for large transactions (>= ₹50,000)
+        if amount >= 50000 and sender and sender.email:
+            from app.services.email_service import send_large_transaction_receipt
+            receiver_name = receiver.full_name if receiver else "Recipient"
+            send_large_transaction_receipt(
+                to_email=sender.email,
+                amount=amount,
+                recipient_name=receiver_name,
+                txn_hash=txn_hash,
+                mode=mode,
+            )
     except Exception as push_err:
         import logging
         logging.getLogger(__name__).warning(f"[FCM] Push notification failed (non-critical): {push_err}")
