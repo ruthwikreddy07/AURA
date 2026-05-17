@@ -113,6 +113,34 @@ def create_transaction(
     db.add(risk_log)
     db.flush()
 
+    # ── Push Notifications ────────────────────────────────────────────────────
+    # Fire-and-forget — never block the payment flow on notification failures
+    try:
+        from app.services.push_notification_service import (
+            notify_payment_received, notify_payment_sent, notify_fraud_alert
+        )
+        sender = db.query(User).filter(User.id == uuid.UUID(sender_id)).first()
+        receiver = db.query(User).filter(User.id == uuid.UUID(receiver_id)).first()
+        sender_name = sender.full_name if sender else "Someone"
+
+        if receiver and receiver.fcm_token:
+            notify_payment_received(
+                fcm_token=receiver.fcm_token,
+                amount=amount,
+                sender_name=sender_name,
+                mode=mode,
+            )
+        if sender and sender.fcm_token:
+            receiver_name = receiver.full_name if receiver else "Recipient"
+            notify_payment_sent(
+                fcm_token=sender.fcm_token,
+                amount=amount,
+                receiver_name=receiver_name,
+            )
+    except Exception as push_err:
+        import logging
+        logging.getLogger(__name__).warning(f"[FCM] Push notification failed (non-critical): {push_err}")
+
     return transaction
 
 

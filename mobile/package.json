@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",
@@ -21,6 +24,7 @@
     "expo-camera": "~55.0.11",
     "expo-crypto": "~55.0.10",
     "expo-local-authentication": "~55.0.9",
+    "expo-notifications": "~0.29.0",
     "expo-secure-store": "~55.0.9",
     "expo-status-bar": "~55.0.4",
     "node-forge": "^1.4.0",
@@ -34,6 +38,21 @@
     "react-native-screens": "~4.23.0",
     "react-native-svg": "15.15.3",
     "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-expo": "~55.0.0",
+    "@testing-library/react-native": "^12.5.0",
+    "@testing-library/jest-native": "^5.4.3",
+    "babel-jest": "^29.7.0"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": ["**/__tests__/**/*.test.js"],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
+    ],
+    "setupFilesAfterFramework": ["@testing-library/jest-native/extend-expect"]
   },
   "private": true
 }

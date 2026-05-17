@@ -19,6 +19,7 @@ from app.routes import (
     admin,
     payments,
     contacts,
+    notifications,
 )
 from app.config import settings
 from app.routes import simulation
@@ -93,6 +94,7 @@ app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
 app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["contacts"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
 
 # ── Token Expiry Background Task ──────────────────────────────
 from app.tasks.token_expiry import process_expired_tokens

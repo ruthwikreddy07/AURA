@@ -1,18 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import AppNavigation from "./Navigation";
 import OfflineOutboxService from "./src/services/OfflineOutboxService";
+import PushNotificationService from "./src/services/PushNotificationService";
 
 function Root() {
   const { dark } = useTheme();
+  const navigationRef = useRef(null);
 
   useEffect(() => {
     // Initialize the offline outbox — starts NetInfo listener for auto-sync
     OfflineOutboxService.init((status) => {
       if (status.syncing) console.log("[Outbox] Auto-syncing offline queue…");
     });
-    return () => OfflineOutboxService.destroy();
+
+    // Initialize push notifications — requests permission + registers FCM token
+    PushNotificationService.init(navigationRef.current);
+
+    return () => {
+      OfflineOutboxService.destroy();
+      PushNotificationService.destroy();
+    };
   }, []);
 
   return (
