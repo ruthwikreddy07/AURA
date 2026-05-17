@@ -68,6 +68,9 @@ def submit_payment_packet(payload: PaymentPacketRequest, db: Session = Depends(g
 
     data = json.loads(decrypted)
 
+    if str(current_user.id) not in (data["sender_id"], data["receiver_id"]) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to submit this payment packet")
+
     txn = transaction_service.create_transaction(
         db=db,
         sender_id=data["sender_id"],

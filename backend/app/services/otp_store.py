@@ -78,6 +78,39 @@ def delete_otp(phone_number: str):
         _memory_fallback.pop(phone_number, None)
 
 
+def store_verified_phone(phone_number: str, ttl_seconds: int = 900):
+    """Mark a phone number as verified so they can complete profile registration."""
+    r = _get_redis()
+    if r:
+        r.setex(f"verified:{phone_number}", ttl_seconds, "1")
+    else:
+        from datetime import timedelta
+        _memory_fallback[f"verified:{phone_number}"] = {
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds),
+        }
+
+def get_verified_phone(phone_number: str) -> bool:
+    r = _get_redis()
+    if r:
+        return r.get(f"verified:{phone_number}") is not None
+    else:
+        stored = _memory_fallback.get(f"verified:{phone_number}")
+        if not stored:
+            return False
+        if datetime.now(timezone.utc) > stored["expires_at"]:
+            del _memory_fallback[f"verified:{phone_number}"]
+            return False
+        return True
+
+def delete_verified_phone(phone_number: str):
+    r = _get_redis()
+    if r:
+        r.delete(f"verified:{phone_number}")
+    else:
+        _memory_fallback.pop(f"verified:{phone_number}", None)
+
+
+
 def cleanup_expired():
     """Clean expired OTPs from in-memory store (no-op for Redis since TTL handles it)."""
     r = _get_redis()

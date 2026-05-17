@@ -76,6 +76,7 @@ def verify_otp_and_get_user(db: Session, phone_number: str, otp: str, device_id:
         return user, False
     
     # User does not exist, needs to complete profile
+    otp_store.store_verified_phone(phone_number)
     return None, True
 
 def complete_user_profile(
@@ -87,6 +88,10 @@ def complete_user_profile(
     device_public_key: str,
     email: str | None = None
 ) -> User:
+    # Verify they actually completed the OTP step
+    if not otp_store.get_verified_phone(phone_number) and os.getenv("ENVIRONMENT") != "development":
+        raise ValueError("Phone number not verified or verification expired")
+
     # Double check if someone stole the number in secular
     existing = db.query(User).filter(User.phone_number == phone_number).first()
     if existing is not None:
@@ -120,6 +125,10 @@ def complete_user_profile(
     db.add(new_user)
     db.flush()
     db.refresh(new_user)
+    
+    # Consume the verification token
+    otp_store.delete_verified_phone(phone_number)
+    
     return new_user
 
 def set_transaction_pin(

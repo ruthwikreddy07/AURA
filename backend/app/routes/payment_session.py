@@ -19,6 +19,9 @@ class CreateSessionRequest(BaseModel):
 
 @router.post("/create")
 def create_payment_session(payload: CreateSessionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if str(current_user.id) not in (payload.sender_id, payload.receiver_id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to create this session")
+
     session = payment_session_service.create_payment_session(
         db=db,
         sender_id=payload.sender_id,
@@ -39,6 +42,9 @@ class MotionProofRequest(BaseModel):
 
 @router.post("/motion-proof")
 def submit_motion_proof(payload: MotionProofRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if payload.user_id != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
 
     session = payment_session_service.submit_motion_proof(
         db=db,
