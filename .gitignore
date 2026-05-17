@@ -40,3 +40,23 @@ yarn-error.*
 
 # Reports
 AURA_PROJECT_AUDIT.md
+# IDE Configs
+.vscode/
+pyrightconfig.json
+pyrefly.toml
+
+# Python
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite3
+*.db
+
+# IDEs & OS
+.idea/
+Thumbs.db
+
+# Local temp outputs
+pyright_output.txt

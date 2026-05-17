@@ -8,7 +8,7 @@ import jwt
 from app.config import settings
 
 
-def create_access_token(user_id: str, email: str, role: str = "user") -> str:
+def create_access_token(user_id: str, email: str | None = None, role: str = "user") -> str:
     """Create a signed JWT access token."""
     now = datetime.now(timezone.utc)
     payload = {
