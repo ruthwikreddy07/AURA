@@ -5,7 +5,8 @@
  *  SENDER   → Scans for nearby AURA receivers → Connects → Writes encrypted packet as characteristic
  *  RECEIVER → Advertises as GATT peripheral → Listens for incoming writes → Parses packet
  *
- * Uses react-native-ble-plx for both scanning and advertising.
+ * Uses react-native-ble-plx for scanning (Sender).
+ * Uses react-native-ble-peripheral-manager for GATT server (Receiver).
  * NOTE: Requires Expo dev build (npx expo run:android). Will NOT work in Expo Go.
  */
 
@@ -13,22 +14,27 @@ import { Platform, PermissionsAndroid } from "react-native";
 import { Buffer } from "buffer";
 
 // AURA BLE Protocol Constants
-const AURA_SERVICE_UUID = "aura0001-0000-1000-8000-00805f9b34fb";
-const AURA_CHAR_PACKET_UUID = "aura0002-0000-1000-8000-00805f9b34fb";
-const AURA_CHAR_STATUS_UUID = "aura0003-0000-1000-8000-00805f9b34fb";
+const AURA_SERVICE_UUID = "AURA0001-0000-1000-8000-00805F9B34FB";
+const AURA_CHAR_PACKET_UUID = "AURA0002-0000-1000-8000-00805F9B34FB";
+const AURA_CHAR_STATUS_UUID = "AURA0003-0000-1000-8000-00805F9B34FB";
 const AURA_DEVICE_PREFIX = "AURA-PAY";
 
 class BLEService {
   constructor() {
     this.connectedDevice = null;
     this.isScanning = false;
+    this.isAdvertising = false;
+    this.writeSub = null;
+    this.stateSub = null;
     
     // Prevent Web crashes: BLE PLX relies on NativeModules which are undefined in standard browsers
     if (Platform.OS !== "web") {
       const { BleManager } = require("react-native-ble-plx");
       this.manager = new BleManager();
+      this.blePeripheral = require("react-native-ble-peripheral-manager");
     } else {
       this.manager = null;
+      this.blePeripheral = null;
     }
   }
 
@@ -146,11 +152,7 @@ class BLEService {
   /* ═══════════ RECEIVER: ADVERTISE & LISTEN ═══════════ */
 
   /**
-   * Start advertising as an AURA receiver and listen for incoming packets.
-   * 
-   * NOTE: Full BLE peripheral mode (GATT server) requires native module setup.
-   * This implementation handles the scanning/discovery side.
-   * For production, you would use a native GATT server plugin.
+   * Start advertising as an AURA receiver and listen for incoming packets via GATT server.
    * 
    * @param {function} onPacketReceived - callback with the received encrypted packet string
    * @param {function} onStatusChange - callback with status: advertising, connected, receiving
@@ -158,55 +160,84 @@ class BLEService {
   async startReceiving(onPacketReceived, onStatusChange = () => {}) {
     onStatusChange("advertising");
 
-    if (!this.manager) {
+    if (!this.blePeripheral) {
       onStatusChange("error");
       console.warn("BLE Receive Error: Bluetooth is not supported on the web platform.");
       return;
     }
 
-    // In a real implementation, this would start a GATT server.
-    // For demo purposes, we use a monitor approach:
-    // The sender writes to a known characteristic, and we poll for it.
-    
-    // Start scanning for senders who are looking for us
-    this.manager.startDeviceScan(null, { allowDuplicates: false }, async (error, device) => {
-      if (error) return;
+    try {
+      this.isAdvertising = true;
 
-      if (device?.name?.startsWith(AURA_DEVICE_PREFIX + "-SEND")) {
-        this.stopScan();
-        onStatusChange("connected");
-
-        try {
-          const connectedDevice = await this.manager.connectToDevice(device.id);
-          await connectedDevice.discoverAllServicesAndCharacteristics();
-
-          onStatusChange("receiving");
-
-          // Monitor characteristic for incoming writes
-          connectedDevice.monitorCharacteristicForService(
-            AURA_SERVICE_UUID,
-            AURA_CHAR_PACKET_UUID,
-            (err, characteristic) => {
-              if (err) {
-                console.warn("BLE Monitor Error:", err.message);
-                return;
-              }
-              if (characteristic?.value) {
-                const packet = Buffer.from(characteristic.value, "base64").toString("utf-8");
-                onPacketReceived(packet);
-              }
-            }
-          );
-        } catch (e) {
-          onStatusChange("error");
-        }
+      // Ensure BLE is powered on
+      const state = await this.blePeripheral.getState();
+      if (state !== this.blePeripheral.ManagerState.PoweredOn) {
+         console.warn("BLE is not powered on.");
       }
-    });
+
+      this.blePeripheral.removeAllServices();
+      
+      // Add primary service
+      this.blePeripheral.addService(AURA_SERVICE_UUID, true);
+
+      // Add writable characteristic for receiving packet
+      this.blePeripheral.addCharacteristicToService(
+        AURA_SERVICE_UUID,
+        AURA_CHAR_PACKET_UUID,
+        this.blePeripheral.CharacteristicProperties.Write,
+        this.blePeripheral.CharacteristicPermissions.Writeable,
+        ''
+      );
+
+      // Add readable characteristic for status
+      this.blePeripheral.addCharacteristicToService(
+        AURA_SERVICE_UUID,
+        AURA_CHAR_STATUS_UUID,
+        this.blePeripheral.CharacteristicProperties.Read,
+        this.blePeripheral.CharacteristicPermissions.Readable,
+        'ACK'
+      );
+
+      this.blePeripheral.setName(`${AURA_DEVICE_PREFIX}-SEND`);
+
+      // Start advertising
+      await this.blePeripheral.startAdvertising({
+        localName: `${AURA_DEVICE_PREFIX}-SEND`,
+        serviceUUIDs: [AURA_SERVICE_UUID]
+      });
+
+      // Listen for write requests
+      this.writeSub = this.blePeripheral.onDidReceiveWriteRequests((event) => {
+        onStatusChange("receiving");
+        event.requests.forEach(req => {
+          if (req.characteristicUUID.toUpperCase() === AURA_CHAR_PACKET_UUID) {
+            const value = this.blePeripheral.decodeBase64(req.value);
+            onPacketReceived(value);
+            this.blePeripheral.respondToRequest(event.requestId, this.blePeripheral.ATTError.Success);
+          }
+        });
+      });
+
+    } catch (e) {
+      console.warn("BLE GATT Server Error:", e.message);
+      onStatusChange("error");
+    }
   }
 
   stopReceiving() {
     this.stopScan();
     this.disconnect();
+    
+    if (this.blePeripheral && this.isAdvertising) {
+       this.blePeripheral.stopAdvertising();
+       this.blePeripheral.removeAllServices();
+       this.isAdvertising = false;
+       
+       if (this.writeSub) {
+         this.writeSub.remove();
+         this.writeSub = null;
+       }
+    }
   }
 
   /* ═══════════ UTILITY ═══════════ */

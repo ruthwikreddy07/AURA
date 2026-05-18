@@ -5,11 +5,12 @@
  *  SENDER   → Writes encrypted payment packet as an NDEF record to NFC tag/peer
  *  RECEIVER → Reads NDEF record on tap → Parses encrypted packet → Submits to backend
  *
- * Uses react-native-nfc-manager.
+ * Uses react-native-nfc-manager for reading, and react-native-hce for writing (emulation).
  * NOTE: Requires Expo dev build (npx expo run:android). Will NOT work in Expo Go.
  */
 
 import NfcManager, { NfcTech, Ndef } from "react-native-nfc-manager";
+import { HCESession, NFCTagType4NDEFContentType, NFCTagType4 } from "react-native-hce";
 
 class NFCService {
   constructor() {
@@ -36,8 +37,8 @@ class NFCService {
   /* ═══════════ SENDER: WRITE NDEF ═══════════ */
 
   /**
-   * Write an encrypted payment packet as an NDEF text record.
-   * The sender taps their phone to the receiver's phone or an NFC tag.
+   * Emulate an NFC tag containing the encrypted payment packet as an NDEF text record.
+   * The sender acts as the HCE (Host Card Emulation) tag, and the receiver taps it.
    * 
    * @param {string} encryptedPacket - JSON string of encrypted payment data
    * @param {function} onProgress - callback with status: waiting, writing, sent, error
@@ -47,27 +48,47 @@ class NFCService {
     try {
       onProgress("waiting");
 
-      // Request NFC technology
-      await NfcManager.requestTechnology(NfcTech.Ndef);
+      // Stop any existing session
+      if (this.hceSession) {
+        await this.hceSession.setEnabled(false);
+      }
+
+      const tag = new NFCTagType4({
+        type: NFCTagType4NDEFContentType.Text,
+        content: encryptedPacket,
+        writable: false
+      });
+
+      this.hceSession = await HCESession.getInstance();
+      this.hceSession.setApplication(tag);
+      await this.hceSession.setEnabled(true);
 
       onProgress("writing");
 
-      // Encode packet as NDEF text record
-      const bytes = Ndef.encodeMessage([
-        Ndef.textRecord(encryptedPacket, "en"),
-      ]);
-
-      // Write to the NFC tag/peer
-      await NfcManager.ndefHandler.writeNdefMessage(bytes);
-
-      onProgress("sent");
-      return true;
+      // Listen for the tag being read by the receiver
+      return new Promise((resolve) => {
+        const removeListener = this.hceSession.on(HCESession.Events.HCE_STATE_READ, async () => {
+          onProgress("sent");
+          removeListener();
+          await this.hceSession.setEnabled(false);
+          this.hceSession = null;
+          resolve(true);
+        });
+        
+        // Timeout after 30 seconds
+        setTimeout(async () => {
+          removeListener();
+          if (this.hceSession) {
+             await this.hceSession.setEnabled(false);
+             this.hceSession = null;
+          }
+          resolve(false);
+        }, 30000);
+      });
     } catch (e) {
       onProgress("error");
-      console.warn("NFC Write Error:", e.message);
+      console.warn("NFC HCE Write Error:", e.message);
       return false;
-    } finally {
-      this.cancelRequest();
     }
   }
 
@@ -119,6 +140,12 @@ class NFCService {
     } catch (e) {
       // Already cancelled
     }
+    try {
+      if (this.hceSession) {
+        this.hceSession.setEnabled(false);
+        this.hceSession = null;
+      }
+    } catch (e) { }
   }
 
   async goToSettings() {
