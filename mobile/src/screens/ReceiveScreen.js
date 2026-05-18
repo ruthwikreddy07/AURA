@@ -277,10 +277,11 @@ export default function ReceiveScreen({ navigation }) {
     setLightStatus("listening"); setLightStats(null);
 
     // NOTE: Real brightness sampling must come from a camera frame processor.
-    // expo-camera does not expose per-frame brightness natively in managed workflow.
-    // In an Expo Dev Build, use expo-camera's frame processor (via react-native-vision-camera)
-    // and call LightService.addBrightnessSample(brightness) from there.
-    // The simulated interval below is a UI placeholder only — it will NOT decode real light data.
+    if (!__DEV__) {
+      Alert.alert("Not Available", "Li-Fi receive requires a dev build with a frame processor plugin.");
+      return reset();
+    }
+
     brightnessIntervalRef.current = setInterval(() => {
       // This simulates ambient noise; replace with real frame processor in dev build:
       // cameraRef.current?.addFrameProcessor(frame => { LightService.addBrightnessSample(frame.brightness); })
@@ -309,6 +310,7 @@ export default function ReceiveScreen({ navigation }) {
   const reset = () => {
     setStep("select"); setVerifyState("listening"); setSoundStatus("idle"); setLightStatus("idle");
     setReceipt(null); setSoundStats(null); setLightStats(null);
+    qrProcessedRef.current = false;
     BLEService.stopReceiving(); NFCService.cancelRequest(); SoundService.destroy(); LightService.destroy();
     if (brightnessIntervalRef.current) { clearInterval(brightnessIntervalRef.current); brightnessIntervalRef.current = null; }
   };

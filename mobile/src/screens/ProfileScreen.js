@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import * as Crypto from "expo-crypto";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
@@ -65,7 +66,8 @@ export default function ProfileScreen({ navigation }) {
     try {
       await setTransactionPin(newPin);
       // Also store for app lock
-      await SecureStore.setItemAsync("app_lock_pin", newPin);
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, newPin);
+      await SecureStore.setItemAsync("app_lock_pin", hash);
       setShowPinForm(false);
       setNewPin("");
       setConfirmPin("");
@@ -78,19 +80,6 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleToggleAppLock = async (value) => {
-    try {
-      const res = await updateUserProfile({ app_lock_enabled: value });
-      setProfile(res);
-      if (value) {
-        await SecureStore.setItemAsync("app_lock_enabled", "true");
-      } else {
-        await SecureStore.deleteItemAsync("app_lock_enabled");
-      }
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    }
-  };
 
   const kycColor = (status) => {
     if (status === "verified") return "success";
@@ -143,12 +132,8 @@ export default function ProfileScreen({ navigation }) {
             </Text>
             <Button 
               style={{ backgroundColor: c.amber }} 
-              onPress={async () => {
-                try {
-                  const res = await updateUserProfile({ kyc_status: "verified" });
-                  setProfile(res);
-                  Alert.alert("Verified!", "Pro Limits Unlocked.");
-                } catch(e) { Alert.alert("Error", e.message); }
+              onPress={() => {
+                Alert.alert("Notice", "KYC upgrades require backend verification and cannot be triggered from the client.");
               }}
             >
               Verify Identity with Aadhaar
@@ -227,13 +212,6 @@ export default function ProfileScreen({ navigation }) {
             </View>
           )}
 
-          <View style={styles.securityRow}>
-            <View>
-              <Text style={[styles.secLabel, { color: c.text }]}>App Lock</Text>
-              <Text style={{ color: c.textMuted, fontSize: 12 }}>Require PIN/biometric on app launch</Text>
-            </View>
-            <Toggle value={profile.app_lock_enabled} onValueChange={handleToggleAppLock} />
-          </View>
         </Card>
       </ScrollView>
     </SafeAreaView>

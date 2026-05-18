@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, Animated, Easing, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import * as Crypto from "expo-crypto";
 import forge from "node-forge";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -139,7 +140,10 @@ export default function AuthScreen({ navigation }) {
     if (userId) await SecureStore.setItemAsync("user_id", userId);
     if (token) await SecureStore.setItemAsync("auth_token", token);
     if (refreshToken) await SecureStore.setItemAsync("refresh_token", refreshToken);
-    if (rawPin) await SecureStore.setItemAsync("app_lock_pin", rawPin);
+    if (rawPin) {
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawPin);
+      await SecureStore.setItemAsync("app_lock_pin", hash);
+    }
     await SecureStore.setItemAsync("app_lock_enabled", "true");
     navigation.replace("Main");
   };

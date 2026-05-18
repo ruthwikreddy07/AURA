@@ -30,7 +30,7 @@ export default function WalletScreen({ navigation }) {
         getUserWallet(userId).catch(() => []),
         getUserBankAccounts(userId).catch(() => []),
       ]);
-      setWallets(Array.isArray(wRes) ? wRes : [wRes]);
+      setWallets(Array.isArray(wRes) ? wRes : wRes ? [wRes] : []);
       setBanks(bRes);
     } catch (e) {
       console.error(e);

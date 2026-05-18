@@ -4,7 +4,8 @@ import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors, useTheme } from "../context/ThemeContext";
-import { getUserWallet, getUserTransactions } from "../api/api";
+import { getUserProfile, getUserWallet, getUserTransactions, getUserTokens } from "../api/api";
+import OfflineOutboxService from "../services/OfflineOutboxService";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import KPICard from "../components/KPICard";
@@ -16,18 +17,27 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [wallets, setWallets] = useState([]);
   const [txs, setTxs] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [tokens, setTokens] = useState([]);
+  const [syncStatus, setSyncStatus] = useState({ pending: 0 });
 
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
       if (!userId) return navigation.replace("Auth");
 
-      const [wRes, tRes] = await Promise.all([
+      const [pRes, wRes, tRes, tokRes, syncRes] = await Promise.all([
+        getUserProfile().catch(() => null),
         getUserWallet(userId).catch(() => []),
         getUserTransactions(userId).catch(() => []),
+        getUserTokens(userId).catch(() => []),
+        OfflineOutboxService.getStatus().catch(() => ({ pending: 0 }))
       ]);
+      setProfile(pRes);
       setWallets(Array.isArray(wRes) ? wRes : [wRes].filter(Boolean));
       setTxs((tRes || []).slice(0, 3));
+      setTokens(Array.isArray(tokRes) ? tokRes : []);
+      setSyncStatus(syncRes);
     } catch (e) {
       console.error(e);
     } finally {
@@ -43,6 +53,10 @@ export default function HomeScreen({ navigation }) {
   const onlineBalance = wallets.find(w => w.wallet_type === "online")?.balance || wallets[0]?.balance || 0;
   const offlineBalance = wallets.find(w => w.wallet_type === "offline")?.balance || 0;
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const firstName = profile?.full_name?.split(" ")[0] || "User";
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]}>
       <ScrollView 
@@ -52,11 +66,11 @@ export default function HomeScreen({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.greeting, { color: c.textSecondary }]}>Good morning,</Text>
-            <Text style={[styles.title, { color: c.text }]}>Dashboard</Text>
+            <Text style={[styles.greeting, { color: c.textSecondary }]}>{greeting},</Text>
+            <Text style={[styles.title, { color: c.text }]}>{firstName}</Text>
           </View>
           <View style={[styles.avatar, { backgroundColor: c.indigo + "20" }]}>
-            <Text style={[styles.avatarText, { color: c.indigo }]}>A</Text>
+            <Text style={[styles.avatarText, { color: c.indigo }]}>{firstName.charAt(0).toUpperCase()}</Text>
           </View>
         </View>
 
@@ -96,8 +110,8 @@ export default function HomeScreen({ navigation }) {
 
         {/* KPIs */}
         <View style={styles.kpiRow}>
-          <KPICard title="Offline Tokens" value="12" subtext="Active tokens" color="emerald" />
-          <KPICard title="Sync Queue" value="3" subtext="Pending settlement" color="amber" />
+          <KPICard title="Offline Tokens" value={tokens.length.toString()} subtext="Active tokens" color="emerald" />
+          <KPICard title="Sync Queue" value={syncStatus.pending.toString()} subtext="Pending settlement" color="amber" />
         </View>
 
         {/* Recent Txs */}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Alert, Animated } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Crypto from "expo-crypto";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
@@ -63,8 +64,8 @@ export default function AppLockScreen({ onUnlock }) {
     setLoading(true);
     try {
       const storedHash = await SecureStore.getItemAsync("app_lock_pin");
-      // Simple check — in production you'd verify server-side
-      if (storedHash === pin) {
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pin);
+      if (storedHash === hash) {
         onUnlock();
       } else {
         shake();

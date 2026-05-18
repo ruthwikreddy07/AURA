@@ -13,7 +13,6 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@expo/config-plugins": "^55.0.9",
     "@expo/metro-runtime": "~55.0.6",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
@@ -23,18 +22,18 @@
     "buffer": "^6.0.3",
     "expo": "~55.0.8",
     "expo-av": "^16.0.8",
-    "expo-camera": "~55.0.11",
-    "expo-crypto": "~55.0.10",
+    "expo-camera": "~55.0.18",
+    "expo-crypto": "~55.0.15",
     "expo-dev-client": "^55.0.34",
     "expo-local-authentication": "~55.0.9",
     "expo-localization": "^55.0.14",
-    "expo-notifications": "~0.29.0",
-    "expo-secure-store": "~55.0.9",
-    "expo-status-bar": "~55.0.4",
+    "expo-notifications": "~55.0.23",
+    "expo-secure-store": "~55.0.14",
+    "expo-status-bar": "~55.0.6",
     "node-forge": "^1.4.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "react-native": "0.83.2",
+    "react-native": "0.83.6",
     "react-native-ble-peripheral-manager": "^0.3.0",
     "react-native-ble-plx": "^3.5.1",
     "react-native-hce": "^0.3.0",
@@ -61,9 +60,20 @@
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
     ],
-    "setupFilesAfterFramework": [
+    "setupFilesAfterEnv": [
       "@testing-library/jest-native/extend-expect"
     ]
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-nfc-manager",
+          "expo-av"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }

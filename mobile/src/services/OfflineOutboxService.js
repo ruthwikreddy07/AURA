@@ -212,6 +212,11 @@ class OfflineOutboxService {
     } finally {
       this.isSyncing = false;
       this._notifyStatus();
+
+      const newQueue = await this._loadQueue();
+      if (newQueue.some((e) => e.status === "pending")) {
+        setTimeout(() => this.drainQueue(requestFn), 100);
+      }
     }
   }
 

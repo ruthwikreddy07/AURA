@@ -4,6 +4,7 @@ import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import AppNavigation from "./Navigation";
 import OfflineOutboxService from "./src/services/OfflineOutboxService";
 import PushNotificationService from "./src/services/PushNotificationService";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 function Root() {
   const { dark } = useTheme();
@@ -27,15 +28,17 @@ function Root() {
   return (
     <>
       <StatusBar style={dark ? "light" : "dark"} />
-      <AppNavigation />
+      <AppNavigation navigationRef={navigationRef} />
     </>
   );
 }
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <Root />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <Root />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

@@ -7,6 +7,9 @@ import * as SecureStore from "expo-secure-store";
 import OfflineOutboxService from "./src/services/OfflineOutboxService";
 import { useTheme, useColors } from "./src/context/ThemeContext";
 
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 // Screens
 import WelcomeScreen from "./src/screens/WelcomeScreen";
 import AuthScreen from "./src/screens/AuthScreen";
@@ -49,8 +52,6 @@ function MoreNavigator() {
 }
 
 // Simple menu screen for the More tab
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 function MoreMenuScreen({ navigation }) {
   const c = useColors();
@@ -137,7 +138,7 @@ function TabNavigator() {
   );
 }
 
-export default function AppNavigation() {
+export default function AppNavigation({ navigationRef }) {
   const { dark } = useTheme();
   const [locked, setLocked] = useState(false);
   const [hasToken, setHasToken] = useState(false);
@@ -145,8 +146,6 @@ export default function AppNavigation() {
 
   useEffect(() => {
     checkAppLockAndToken();
-    OfflineOutboxService.init();
-    return () => OfflineOutboxService.destroy();
   }, []);
 
   const checkAppLockAndToken = async () => {
@@ -173,7 +172,7 @@ export default function AppNavigation() {
   }
 
   return (
-    <NavigationContainer theme={dark ? DarkTheme : DefaultTheme}>
+    <NavigationContainer ref={navigationRef} theme={dark ? DarkTheme : DefaultTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={hasToken ? "Main" : "Welcome"}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />

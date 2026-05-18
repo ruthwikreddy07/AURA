@@ -90,10 +90,11 @@ export default function SendScreen({ navigation }) {
     setLoading(true);
     try {
       const senderId = await SecureStore.getItemAsync("user_id");
+      const pubKey = await SecureStore.getItemAsync("device_public_key") || "SENDER_PUB_KEY_MOCK";
       const sess = await createPaymentSession({
         sender_id: senderId,
         receiver_id: receiverId,
-        ephemeral_pub_key: "SENDER_PUB_KEY_MOCK",
+        ephemeral_pub_key: pubKey,
       });
       setSession(sess);
       const score = Number(amount) > 10000 ? 85 : 10;
@@ -145,9 +146,9 @@ export default function SendScreen({ navigation }) {
       else if (activeMode === "Light")  { setStep("light-flash"); startLightTransmit(packetStr); }
       slideIn();
     } catch (e) {
-      await releaseTxLock();
       Alert.alert("Error", e.message);
     } finally {
+      await releaseTxLock();
       setLoading(false);
     }
   };

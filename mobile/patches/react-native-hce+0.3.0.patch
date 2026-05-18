@@ -1,8 +1,91 @@
 diff --git a/node_modules/react-native-hce/android/build.gradle b/node_modules/react-native-hce/android/build.gradle
-index 25c6ac4..f3e52a4 100644
+index 25c6ac4..2c4ca0f 100644
 --- a/node_modules/react-native-hce/android/build.gradle
 +++ b/node_modules/react-native-hce/android/build.gradle
-@@ -127,7 +127,7 @@ dependencies {
+@@ -4,7 +4,7 @@ buildscript {
+ 
+   repositories {
+     google()
+-    jcenter()
++    mavenCentral()
+   }
+ 
+   dependencies {
+@@ -52,73 +52,7 @@ android {
+ 
+ repositories {
+   mavenCentral()
+-  jcenter()
+   google()
+-
+-  def found = false
+-  def defaultDir = null
+-  def androidSourcesName = 'React Native sources'
+-
+-  if (rootProject.ext.has('reactNativeAndroidRoot')) {
+-    defaultDir = rootProject.ext.get('reactNativeAndroidRoot')
+-  } else {
+-    defaultDir = new File(
+-            projectDir,
+-            '/../../../node_modules/react-native/android'
+-    )
+-  }
+-
+-  if (defaultDir.exists()) {
+-    maven {
+-      url defaultDir.toString()
+-      name androidSourcesName
+-    }
+-
+-    logger.info(":${project.name}:reactNativeAndroidRoot ${defaultDir.canonicalPath}")
+-    found = true
+-  } else {
+-    def parentDir = rootProject.projectDir
+-
+-    1.upto(5, {
+-      if (found) return true
+-      parentDir = parentDir.parentFile
+-
+-      def androidSourcesDir = new File(
+-              parentDir,
+-              'node_modules/react-native'
+-      )
+-
+-      def androidPrebuiltBinaryDir = new File(
+-              parentDir,
+-              'node_modules/react-native/android'
+-      )
+-
+-      if (androidPrebuiltBinaryDir.exists()) {
+-        maven {
+-          url androidPrebuiltBinaryDir.toString()
+-          name androidSourcesName
+-        }
+-
+-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidPrebuiltBinaryDir.canonicalPath}")
+-        found = true
+-      } else if (androidSourcesDir.exists()) {
+-        maven {
+-          url androidSourcesDir.toString()
+-          name androidSourcesName
+-        }
+-
+-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidSourcesDir.canonicalPath}")
+-        found = true
+-      }
+-    })
+-  }
+-
+-  if (!found) {
+-    throw new GradleException(
+-            "${project.name}: unable to locate React Native android sources. " +
+-                    "Ensure you have you installed React Native as a dependency in your project and try again."
+-    )
+-  }
+ }
+ 
+ def kotlin_version = getExtOrDefault('kotlinVersion')
+@@ -127,7 +61,7 @@ dependencies {
    def lifecycle_version = "2.4.0"
  
    // noinspection GradleDynamicVersion
