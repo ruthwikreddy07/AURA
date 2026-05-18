@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-hce/android/build.gradle b/node_modules/react-native-hce/android/build.gradle
+index 25c6ac4..f3e52a4 100644
+--- a/node_modules/react-native-hce/android/build.gradle
++++ b/node_modules/react-native-hce/android/build.gradle
+@@ -127,7 +127,7 @@ dependencies {
+   def lifecycle_version = "2.4.0"
+ 
+   // noinspection GradleDynamicVersion
+-  api 'com.facebook.react:react-native:+'
++  implementation "com.facebook.react:react-android"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+   implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
+   implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version"
