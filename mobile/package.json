@@ -35,7 +35,6 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.2",
-    "react-native-ble-peripheral": "^2.0.1",
     "react-native-ble-peripheral-manager": "^0.3.0",
     "react-native-ble-plx": "^3.5.1",
     "react-native-hce": "^0.3.0",
