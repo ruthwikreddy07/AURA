@@ -47,13 +47,22 @@ app = FastAPI(
     debug=False,  # Must be False so global_exception_handler can add CORS headers
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.DEBUG:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex="https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
@@ -67,9 +76,14 @@ async def global_exception_handler(request: Request, exc: Exception):
     """Catch-all handler so that even 500 responses carry CORS headers."""
     origin = request.headers.get("origin", "")
     headers = {}
-    if origin in ALLOWED_ORIGINS:
-        headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
+    if settings.DEBUG:
+        if origin:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        if origin in ALLOWED_ORIGINS:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
 
     traceback.print_exc()  # still log the full traceback to the console
 

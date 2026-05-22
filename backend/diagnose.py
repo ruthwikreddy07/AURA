@@ -20,7 +20,7 @@ steps = [
     ("util: crypto",        "from app.utils.crypto import sign_token, verify_token"),
     ("util: token_gen",     "from app.utils.token_generator import generate_signed_token"),
     ("ai: risk_engine",     "from app.ai.risk_engine import evaluate_transaction"),
-    ("service: auth",       "from app.services.auth_service import create_user, authenticate_user"),
+    ("service: auth",       "from app.services.auth_service import request_otp, verify_otp_and_get_user, complete_user_profile"),
     ("service: wallet",     "from app.services.wallet_service import create_wallet"),
     ("service: token",      "from app.services.token_service import issue_token"),
     ("service: transaction","from app.services.transaction_service import create_transaction, get_user_transactions"),

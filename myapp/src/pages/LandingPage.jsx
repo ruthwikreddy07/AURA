@@ -10,7 +10,8 @@ import {
   Zap, Lock, RefreshCw, ShieldCheck, Globe, Disc,
   ArrowRight, Star, Quote, PlayCircle,
   QrCode, Bluetooth, Wifi, Volume2, Sun, Layers, Radio, CheckCircle2,
-  Cpu, BarChart3, Shield, ChevronDown, Sparkles
+  Cpu, BarChart3, Shield, ChevronDown, Sparkles,
+  Smartphone, Building2, UserCheck, Scale, HelpCircle, Activity
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { cls } from "../utils/cls";
@@ -257,6 +258,228 @@ function SectionLabel({ text, color = "text-indigo-400" }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   INTELLIGENT ENVIRONMENT ADAPTATION SIMULATOR (AURA AI Core)
+   ══════════════════════════════════════════════════════════════════════ */
+function EnvironmentSimulator() {
+  const [ble, setBle] = useState(true);
+  const [mic, setMic] = useState(true);
+  const [cam, setCam] = useState(true);
+  const [noise, setNoise] = useState(30);
+  const [light, setLight] = useState(25);
+
+  const { recommended, scores } = useMemo(() => {
+    const scores = {};
+    if (ble) scores["Bluetooth LE"] = 80;
+    if (mic) scores["Ultrasonic (FSK)"] = Math.max(0, 70 - noise);
+    if (cam) scores["Li-Fi Light"] = Math.max(0, 65 - light);
+    if (cam) scores["QR Code Scan"] = 60;
+
+    const sorted = Object.entries(scores)
+      .filter(([_, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    return {
+      recommended: sorted.length > 0 ? sorted[0][0] : "None (All Sensors Blocked)",
+      scores: sorted
+    };
+  }, [ble, mic, cam, noise, light]);
+
+  const channelIcons = {
+    "Bluetooth LE": <Bluetooth className="w-5 h-5 animate-pulse text-blue-400" />,
+    "Ultrasonic (FSK)": <Volume2 className="w-5 h-5 animate-pulse text-violet-400" />,
+    "Li-Fi Light": <Sun className="w-5 h-5 animate-pulse text-amber-400" />,
+    "QR Code Scan": <QrCode className="w-5 h-5 animate-pulse text-emerald-400" />,
+  };
+
+  const channelGlows = {
+    "Bluetooth LE": "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    "Ultrasonic (FSK)": "bg-violet-500/20 text-violet-400 border-violet-500/30",
+    "Li-Fi Light": "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    "QR Code Scan": "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  };
+
+  return (
+    <div className="grid lg:grid-cols-5 gap-8 items-center rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-8 relative overflow-hidden text-left">
+      <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none" />
+      
+      {/* Interactive Controls */}
+      <div className="lg:col-span-2 space-y-6">
+        <div>
+          <h3 className="text-xl font-bold text-white mb-2">Ambient Sensor Feed</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">Manipulate environment feeds to trigger AURA's adaptive channel selection scoring model dynamically.</p>
+        </div>
+
+        {/* Hardware toggles */}
+        <div className="space-y-3">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hardware Status</p>
+          <div className="flex gap-2">
+            {[
+              { label: "Bluetooth", state: ble, set: setBle },
+              { label: "Microphone", state: mic, set: setMic },
+              { label: "Camera", state: cam, set: setCam }
+            ].map(hw => (
+              <button
+                key={hw.label}
+                onClick={() => hw.set(!hw.state)}
+                className={cls(
+                  "flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all duration-200 active:scale-95",
+                  hw.state
+                    ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+                    : "bg-white/[0.02] border-white/[0.05] text-slate-500"
+                )}
+              >
+                {hw.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sliders */}
+        <div className="space-y-4 pt-2">
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5" /> Ambient Noise</span>
+              <span className="text-xs font-bold text-indigo-400">{noise} dB</span>
+            </div>
+            <input
+              type="range" min="10" max="90" value={noise} onChange={e => setNoise(Number(e.target.value))}
+              disabled={!mic}
+              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500 disabled:opacity-30"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><Sun className="w-3.5 h-3.5" /> Direct Light</span>
+              <span className="text-xs font-bold text-indigo-400">{light} lux</span>
+            </div>
+            <input
+              type="range" min="5" max="95" value={light} onChange={e => setLight(Number(e.target.value))}
+              disabled={!cam}
+              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500 disabled:opacity-30"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended display */}
+      <div className="lg:col-span-3 space-y-6 lg:border-l lg:border-white/[0.06] lg:pl-8">
+        <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-md">
+          <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">AI Engine Recommendation</p>
+          <div className="flex items-center gap-4">
+            <div className={cls(
+              "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border",
+              channelGlows[recommended] || "bg-white/10 text-white border-white/20"
+            )}>
+              {channelIcons[recommended] || <Activity className="w-5 h-5 text-indigo-400 animate-pulse" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-extrabold text-lg text-white">{recommended}</h4>
+                {recommended !== "None (All Sensors Blocked)" && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                {recommended === "Bluetooth LE" && "Optimal throughput. Secured with Diffie-Hellman keys over GATT characteristic."}
+                {recommended === "Ultrasonic (FSK)" && "High noise-resilience Goertzel frequency decoding activated."}
+                {recommended === "Li-Fi Light" && "Manchester-encoded direct visual flashlight pulses standard active."}
+                {recommended === "QR Code Scan" && "Offline signature packet seal rendered dynamically for scan validation."}
+                {recommended === "None (All Sensors Blocked)" && "Enable microphone, Bluetooth, or camera sensors to initialize routing."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time score list */}
+        <div className="space-y-3.5">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Channel Selection Ranking</p>
+          {scores.length === 0 ? (
+            <div className="text-center py-4 text-xs font-semibold text-slate-500 border border-dashed border-white/5 rounded-xl">No channels clear the safety score threshold.</div>
+          ) : (
+            scores.map(([name, val]) => (
+              <div key={name} className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-400 w-32 truncate">{name}</span>
+                <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-300"
+                    style={{ width: `${val}%` }}
+                  />
+                </div>
+                <span className="text-xs font-extrabold text-white w-8 text-right">{val}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   FAQ ACCORDION COMPONENT
+   ══════════════════════════════════════════════════════════════════════ */
+function FAQAccordion() {
+  const [openIdx, setOpenIdx] = useState(null);
+
+  const FAQS = [
+    {
+      q: "How does AURA guarantee zero double-spending without internet?",
+      a: "AURA employs a proprietary Two-Phase Commit (2PC) protocol combined with hard on-device cryptographic state locking. When a transaction is initialized, the selected RSA-2048 offline token is locked inside your local device storage. Once scan/transmission occurs, it is flagged as 'spent'. It cannot be re-spent until a secure backend network handshake is executed to clear or refresh your local vault balances."
+    },
+    {
+      q: "Are BLE, ultrasonic, or flashlight signals vulnerable to interception?",
+      a: "No. While the physical transmission takes place over open air waves, the underlying payload is protected. In Step 1, a secure session key is negotiated via an elliptic-curve Diffie-Hellman (ECDH) exchange. The actual transaction data packet is then sealed with AES-256-GCM authenticated encryption. Any listener intercepting the wave or scanner sees only random ciphertext that is cryptographically impossible to spoof or replay."
+    },
+    {
+      q: "How does the local machine learning risk scoring operate off-grid?",
+      a: "Every transaction includes direct hardware telemetry: localized transaction speed/velocity, physical device orientation, relative sound/light characteristics, and local timestamp data. A compact, optimized ONNX-compiled machine learning classifier evaluates these features directly on the device CPU. Suspicious patterns are flagged or blocked before transmission, requiring PIN/biometric overrides."
+    },
+    {
+      q: "How do I fund my offline wallet and increase my transfer limits?",
+      a: "You can securely link multiple standard bank accounts directly inside the AURA dashboard. Funding allows you to 'mint' and pre-fetch digital tokens onto your device. To elevate your transaction limits from standard limits up to ₹1,00,000, simply complete the secure document compliance. Your Aadhaar or PAN is validated against regulatory data hashes securely."
+    },
+    {
+      q: "What happens if an offline transfer sync fails or gets corrupted?",
+      a: "Every air-gapped transaction produces a cryptographic signature exchange that functions as an absolute receipt. If a sync error or double-spend conflict occurs, either user can file a direct formal dispute inside the dashboard dispute center. System administrators review the cryptographic signature proofs and issue formal chargeback reconciliations immediately."
+    }
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-4 text-left">
+      {FAQS.map((f, idx) => {
+        const isOpen = openIdx === idx;
+        return (
+          <div key={idx} className="rounded-2xl border border-white/[0.06] bg-white/[0.01] backdrop-blur-xl overflow-hidden transition-all duration-300">
+            <button
+              onClick={() => setOpenIdx(isOpen ? null : idx)}
+              className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
+            >
+              <span className="font-extrabold text-base sm:text-lg text-white pr-4">{f.q}</span>
+              <ChevronDown className={cls("w-5 h-5 text-slate-400 transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="px-6 pb-6 text-sm leading-relaxed text-slate-400 border-t border-white/[0.04] pt-4">
+                    {f.a}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    MAIN PAGE
    ══════════════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
@@ -332,9 +555,17 @@ export default function LandingPage() {
             <span className="font-black text-lg tracking-tight">AURA</span>
             <span className="text-[9px] font-bold uppercase tracking-[0.15em] px-2 py-0.5 rounded-full border border-indigo-500/30 text-indigo-400 bg-indigo-500/10 ml-1">Protocol</span>
           </div>
-          <div className="hidden md:flex items-center gap-8">
-            {["Features","Protocol","Modes","Security"].map(t => (
-              <a key={t} href={`#${t.toLowerCase()}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors">{t}</a>
+          <div className="hidden lg:flex items-center gap-6">
+            {[
+              { label: "Features", href: "#features" },
+              { label: "Ecosystem", href: "#ecosystem" },
+              { label: "Protocol", href: "#protocol" },
+              { label: "Modes", href: "#modes" },
+              { label: "AI Routing", href: "#ai-routing" },
+              { label: "Security", href: "#security" },
+              { label: "FAQ", href: "#faq" }
+            ].map(t => (
+              <a key={t.label} href={t.href} className="text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition-colors">{t.label}</a>
             ))}
           </div>
           <button onClick={() => navigate("/auth")} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-indigo-500/25">
@@ -538,6 +769,20 @@ export default function LandingPage() {
         </div>
       </Section>
 
+      {/* ═══════════════ AI ENVIRONMENT ROUTING ═══════════════ */}
+      <Section className="py-24" id="ai-routing">
+        <SectionLabel text="AI Routing Core" color="text-indigo-400" />
+        <motion.h2 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-center mb-6">
+          Real-Time <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Adaptive</span> Channel Scoring
+        </motion.h2>
+        <motion.p variants={fadeUp} className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-16">
+          Test AURA's environment-aware telemetry scoring engine. Ambient noise levels, direct light conditions, and active hardware availability automatically determine the most secure path.
+        </motion.p>
+        <motion.div variants={fadeUp}>
+          <EnvironmentSimulator />
+        </motion.div>
+      </Section>
+
       {/* ═══════════════ PROTOCOL ═══════════════ */}
       <Section className="py-24" id="protocol">
         <SectionLabel text="Architecture" color="text-violet-400" />
@@ -589,6 +834,9 @@ export default function LandingPage() {
                   "AES-256-GCM per-session ephemeral encryption",
                   "JWT authentication with bcrypt password hashing",
                   "Real-time ML risk scoring on every transaction",
+                  "Hardware-backed Biometric Vault (Face ID / Fingerprint)",
+                  "Encrypted Web QR Session Login Authorization",
+                  "FCM Push Alerts & Twilio SMTP Notification Gateway",
                 ].map((item, i) => (
                   <motion.div key={i} variants={fadeUp} custom={i} className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
@@ -607,6 +855,8 @@ export default function LandingPage() {
                 { label: "Authentication", value: "JWT + bcrypt", icon: <ShieldCheck className="w-5 h-5" /> },
                 { label: "Anti-Replay", value: "Nonce + Expiry", icon: <RefreshCw className="w-5 h-5" /> },
                 { label: "Risk Engine", value: "ML Scoring", icon: <BarChart3 className="w-5 h-5" /> },
+                { label: "App Lock", value: "Face ID / PIN", icon: <Smartphone className="w-5 h-5" /> },
+                { label: "Gateway Alerts", value: "FCM + Twilio + SMTP", icon: <Globe className="w-5 h-5" /> },
               ].map((item, i) => (
                 <motion.div key={i} variants={fadeUp} custom={i} whileHover={{ scale: 1.02 }}
                   className="flex items-center justify-between p-5 rounded-2xl border border-white/[0.06] bg-white/[0.03] hover:border-indigo-500/20 transition-all cursor-default">
@@ -618,6 +868,102 @@ export default function LandingPage() {
                 </motion.div>
               ))}
             </div>
+          </div>
+        </motion.div>
+      </Section>
+
+      {/* ═══════════════ ECOSYSTEM FEATURES ═══════════════ */}
+      <Section className="py-24" id="ecosystem">
+        <SectionLabel text="Ecosystem" color="text-violet-400" />
+        <motion.h2 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-center mb-6">
+          The Complete <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Offline Suite</span>
+        </motion.h2>
+        <motion.p variants={fadeUp} className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-16">
+          AURA isn't just a protocol — it is a fully integrated ecosystem designed to bridge secure bank trust with pure off-grid independence.
+        </motion.p>
+
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {[
+            {
+              icon: <Building2 className="w-6 h-6 text-violet-400" />,
+              title: "Multi-Bank Liquidity Vault",
+              desc: "Link multiple standard savings or checking accounts seamlessly. Mint, fund, and pre-fetch digital cryptographic tokens onto your local device storage prior to going off-grid.",
+              glow: "violet"
+            },
+            {
+              icon: <UserCheck className="w-6 h-6 text-emerald-400" />,
+              title: "Automated KYC Verification",
+              desc: "Unlock increased transaction thresholds up to ₹1,00,000. Securely submit and cryptographically hash Aadhaar or PAN documents for instant background compliance checks.",
+              glow: "emerald"
+            },
+            {
+              icon: <Smartphone className="w-6 h-6 text-blue-400" />,
+              title: "Companion Mobile App",
+              desc: "Access physical hardware transceivers directly. The React Native mobile client manages high-performance Bluetooth GATT sockets, Goertzel frequency decoders, and LED light transceivers.",
+              glow: "blue"
+            },
+            {
+              icon: <Scale className="w-6 h-6 text-rose-400" />,
+              title: "Decentralized Disputes & Claims",
+              desc: "Air-gapped payments shouldn't mean zero safety. File signed offline transaction receipts instantly. Securely claim chargebacks, resolve discrepancies, and track admin audits.",
+              glow: "rose"
+            }
+          ].map((item, i) => (
+            <motion.div key={i} variants={fadeUp} custom={i}>
+              <GlowCard glowColor={item.glow} className="p-8 h-full text-left">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-6">
+                  {item.icon}
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-white">{item.title}</h3>
+                <p className="text-sm leading-relaxed text-slate-400">{item.desc}</p>
+              </GlowCard>
+            </motion.div>
+          ))}
+        </div>
+      </Section>
+
+      {/* ═══════════════ COMPARATIVE MATRIX ═══════════════ */}
+      <Section className="py-24" id="comparison">
+        <SectionLabel text="Comparison" color="text-indigo-400" />
+        <motion.h2 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-center mb-6">
+          Architected for the <span className="bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">Next Era</span>
+        </motion.h2>
+        <motion.p variants={fadeUp} className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-16">
+          How AURA stacks up against traditional, modern digital, and physical cash assets.
+        </motion.p>
+
+        <motion.div variants={fadeUp} className="max-w-5xl mx-auto rounded-3xl border border-white/[0.06] bg-white/[0.01] backdrop-blur-xl overflow-hidden shadow-2xl relative">
+          <div className="absolute inset-0 shimmer pointer-events-none" />
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                  <th className="p-6 text-sm font-black uppercase tracking-wider text-slate-400">Capabilities</th>
+                  <th className="p-6 text-sm font-black uppercase tracking-wider text-slate-400">UPI / Banking</th>
+                  <th className="p-6 text-sm font-black uppercase tracking-wider text-slate-400">Standard CBDC</th>
+                  <th className="p-6 text-sm font-black uppercase tracking-wider text-slate-400">Physical Cash</th>
+                  <th className="p-6 text-sm font-black uppercase tracking-wider text-indigo-400 bg-indigo-500/5">AURA Protocol</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {[
+                  { feature: "Zero Internet Support", upi: "No (Fails instantly)", cbdc: "Partial (Needs periodic sync)", cash: "Yes (Physical only)", aura: "Yes (100% off-grid)", highlight: true },
+                  { feature: "Transaction Speeds", upi: "~3.0 seconds", cbdc: "~1.5 seconds", cash: "~5.0 seconds (Manual)", aura: "0.3s - 1.2s (Instant)", highlight: true },
+                  { feature: "Direct Sensor Channels", upi: "QR Scan only", cbdc: "NFC Tap only", cash: "Physical handover", aura: "5 Channels (BLE, Sound, NFC, QR, Light)", highlight: false },
+                  { feature: "Local ML Risk Scoring", upi: "Server-side only", cbdc: "Server-side only", cash: "Manual checking", aura: "On-Device ONNX Engine", highlight: false },
+                  { feature: "Double-Spend Safety", upi: "Central database locked", cbdc: "Periodic ledger clear", cash: "Not applicable", aura: "2-Phase local token lock", highlight: true },
+                  { feature: "Snooping Protection", upi: "Network layer only", cbdc: "Network layer only", cash: "None (Physical theft)", aura: "AES-256-GCM & ECDH Session", highlight: false },
+                ].map((row, i) => (
+                  <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="p-6 text-sm font-bold text-white">{row.feature}</td>
+                    <td className="p-6 text-xs font-semibold text-slate-400">{row.upi}</td>
+                    <td className="p-6 text-xs font-semibold text-slate-400">{row.cbdc}</td>
+                    <td className="p-6 text-xs font-semibold text-slate-400">{row.cash}</td>
+                    <td className={cls("p-6 text-xs font-extrabold bg-indigo-500/5", row.highlight ? "text-emerald-400" : "text-indigo-300")}>{row.aura}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </motion.div>
       </Section>
@@ -640,6 +986,20 @@ export default function LandingPage() {
           </div>
           <div className="flex justify-center gap-2 mt-6">{TESTIMONIALS.map((_, i) => (<button key={i} onClick={() => setActiveT(i)} className={cls("h-2 rounded-full transition-all duration-300", activeT === i ? "bg-indigo-500 w-10" : "bg-white/10 w-2")} />))}</div>
         </div>
+      </Section>
+
+      {/* ═══════════════ FAQ SECTION ═══════════════ */}
+      <Section className="py-24 font-sans text-center" id="faq">
+        <SectionLabel text="FAQ" color="text-indigo-400" />
+        <motion.h2 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-center mb-6">
+          Frequently Asked <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Questions</span>
+        </motion.h2>
+        <motion.p variants={fadeUp} className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-16">
+          Understand the mathematics, cryptography, and logic behind secure offline settlements.
+        </motion.p>
+        <motion.div variants={fadeUp}>
+          <FAQAccordion />
+        </motion.div>
       </Section>
 
       {/* ═══════════════ CTA ═══════════════ */}
