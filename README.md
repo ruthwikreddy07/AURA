@@ -93,31 +93,88 @@ AURA pre-fetches **RSA-2048 signed cryptographic tokens** onto your device. When
 
 ## 🏗️ Architecture
 
+```mermaid
+graph TB
+    subgraph Frontend["🖥️ Frontend Clients"]
+        Mobile["📱 Mobile App<br/>Expo SDK 55 + React Native 0.83"]
+        Web["🌐 Web Dashboard<br/>Vite 7 + React 19 + TailwindCSS"]
+    end
+
+    subgraph TransferModes["📡 5 Air-Gap Transfer Modes"]
+        QR["📷 QR Code"]
+        BLE["📶 Bluetooth LE"]
+        NFC["📲 NFC Tap"]
+        Sound["🔊 Ultrasonic FSK"]
+        Light["💡 Li-Fi Manchester"]
+    end
+
+    subgraph Backend["⚡ Backend API (FastAPI)"]
+        API["🛣️ 20 Route Modules"]
+        Services["⚙️ 15 Service Layer"]
+        Risk["🧠 ML Risk Engine<br/>ONNX RandomForest"]
+        Tasks["⏱️ Background Tasks<br/>Token Expiry + Auto-Refund"]
+        Middleware["📝 Audit Middleware<br/>+ Rate Limiting"]
+    end
+
+    subgraph DataLayer["💾 Data Layer"]
+        DB[("🐘 PostgreSQL 16<br/>16 Models / Alembic")]
+        Redis[("🔴 Redis 7<br/>OTP Cache + Sessions")]
+        Keys["🔑 RSA Keypair<br/>keys/private.pem"]
+    end
+
+    subgraph Integrations["🔌 External Services"]
+        Twilio["📱 Twilio SMS"]
+        FCM["🔔 Firebase FCM"]
+        Razorpay["💳 Razorpay"]
+        SMTP["📧 SMTP Email"]
+    end
+
+    Mobile -- REST API --> API
+    Web -- REST API --> API
+    Mobile <-. "Encrypted Packets" .-> TransferModes
+    API --> Services
+    Services --> Risk
+    Services --> DB
+    Services --> Redis
+    Services --> Keys
+    API --> Tasks
+    API --> Middleware
+    Services --> Twilio
+    Services --> FCM
+    Services --> Razorpay
+    Services --> SMTP
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           AURA ECOSYSTEM                                │
-├─────────────────┬───────────────────────┬───────────────────────────────┤
-│                 │                       │                               │
-│  📱 Mobile App  │  🌐 Web Dashboard    │  ⚡ Backend API               │
-│  Expo + RN      │  Vite + React        │  FastAPI + PostgreSQL         │
-│                 │  + TailwindCSS       │  + Redis + ONNX              │
-│  ┌───────────┐  │  ┌───────────────┐   │  ┌─────────────────────────┐ │
-│  │ 5 Transfer│  │  │ Landing Page  │   │  │ 20 API Route Modules    │ │
-│  │ Services  │  │  │ + 3D Hero     │   │  │ 15 Service Layer        │ │
-│  │           │  │  │ + Environment │   │  │ 16 Database Models      │ │
-│  │ • QR      │  │  │   Simulator   │   │  │ ML Risk Engine (ONNX)   │ │
-│  │ • BLE     │  │  ├───────────────┤   │  │ Token Expiry Tasks      │ │
-│  │ • NFC     │  │  │ 18 Dashboard  │   │  │ Push Notifications      │ │
-│  │ • Sound   │  │  │ Pages         │   │  │ Email Service           │ │
-│  │ • Light   │  │  └───────────────┘   │  │ Audit Middleware         │ │
-│  └───────────┘  │                       │  └─────────────────────────┘ │
-│  ┌───────────┐  │                       │                               │
-│  │ Offline   │  │                       │  ┌─────────────────────────┐ │
-│  │ Outbox    │  │                       │  │ 🐘 PostgreSQL 16        │ │
-│  │ Queue     │──│───────────────────────│──│ 🔴 Redis 7              │ │
-│  └───────────┘  │                       │  │ 🔑 RSA Keypair (keys/) │ │
-│                 │                       │  └─────────────────────────┘ │
-└─────────────────┴───────────────────────┴───────────────────────────────┘
+
+### Offline Sync Architecture
+
+```mermaid
+flowchart LR
+    subgraph Device["📱 Sender Device"]
+        Token["🪙 RSA-Signed Token"]
+        Encrypt["🔒 AES-256-GCM Encrypt"]
+        Outbox["📦 Offline Outbox<br/>AsyncStorage Queue"]
+    end
+
+    subgraph AirGap["📡 Air Gap"]
+        Transfer{"Transfer Mode<br/>QR / BLE / NFC<br/>Sound / Light"}
+    end
+
+    subgraph Receiver["📱 Receiver Device"]
+        Decrypt["🔓 Decrypt + Verify"]
+        ROutbox["📦 Receiver Outbox"]
+    end
+
+    subgraph Cloud["☁️ Backend"]
+        Sync["🔄 Sync Engine"]
+        Verify["✅ Token Verify"]
+        RiskML["🧠 ML Risk Score"]
+        Settle["💰 Settlement"]
+    end
+
+    Token --> Encrypt --> Transfer --> Decrypt --> ROutbox
+    Outbox -. "NetInfo Auto-Drain" .-> Sync
+    ROutbox -. "NetInfo Auto-Drain" .-> Sync
+    Sync --> Verify --> RiskML --> Settle
 ```
 
 ### Payment Flow
@@ -160,6 +217,21 @@ AURA implements **five distinct hardware communication protocols**, each with cu
 | **Range** | Line of sight |
 | **How it works** | Encrypted payment packet serialized into a QR code. Receiver scans with camera. |
 
+```mermaid
+sequenceDiagram
+    participant S as 📱 Sender
+    participant R as 📱 Receiver
+
+    S->>S: Encrypt packet (AES-256-GCM)
+    S->>S: Encode → QR Code (SVG render)
+    Note over S: Display QR on screen
+    R->>R: Open Camera (expo-camera)
+    R->>S: 📷 Scan QR Code
+    R->>R: Decode → Decrypt packet
+    R->>R: Verify RSA-PSS signature
+    R->>R: Store in Offline Outbox
+```
+
 ### 2. 📶 Bluetooth Low Energy (BLE)
 
 | Spec | Value |
@@ -169,6 +241,24 @@ AURA implements **five distinct hardware communication protocols**, each with cu
 | **Range** | ~30 meters |
 | **How it works** | Peer-to-peer GATT characteristic writes. Sender advertises as BLE peripheral, receiver connects as central and reads the encrypted packet from a custom GATT characteristic. |
 
+```mermaid
+sequenceDiagram
+    participant S as 📱 Sender (Peripheral)
+    participant R as 📱 Receiver (Central)
+
+    S->>S: Start BLE Advertising
+    S->>S: Create GATT Service + Characteristic
+    S->>S: Write encrypted packet to Characteristic
+    R->>R: Scan for BLE Peripherals
+    R->>S: Connect to AURA device
+    R->>S: Discover Services
+    R->>S: Read GATT Characteristic
+    S-->>R: 📶 Encrypted Packet (over BLE)
+    R->>R: Decrypt + Verify RSA-PSS
+    R->>R: Store in Offline Outbox
+    R->>S: Disconnect
+```
+
 ### 3. 📲 NFC (Near Field Communication)
 
 | Spec | Value |
@@ -177,6 +267,20 @@ AURA implements **five distinct hardware communication protocols**, each with cu
 | **Speed** | ~0.3 seconds |
 | **Range** | ~4 cm |
 | **How it works** | NDEF record exchange. Sender writes encrypted packet to NFC tag/HCE, receiver taps to read. Fastest transfer mode. |
+
+```mermaid
+sequenceDiagram
+    participant S as 📱 Sender (HCE)
+    participant R as 📱 Receiver (Reader)
+
+    S->>S: Encrypt payment packet
+    S->>S: Write NDEF Record (HCE emulation)
+    Note over S,R: 📲 Tap devices together (~4cm)
+    R->>S: NFC Field Detected
+    S-->>R: NDEF Record Transfer (~0.3s)
+    R->>R: Parse NDEF → Decrypt packet
+    R->>R: Verify signature + Store
+```
 
 ### 4. 🔊 Ultrasonic Sound (FSK Protocol)
 
@@ -191,12 +295,34 @@ AURA implements **five distinct hardware communication protocols**, each with cu
 | **Speed** | ~2.5 seconds |
 | **Range** | ~3 meters |
 
-```
-DATA → Binary Bits → CRC-16 + ECC → FSK Tones (18-20kHz)
-                                          ↓
-                         Speaker → Air → Microphone
-                                          ↓
-              Goertzel Detection → Binary → CRC/ECC Verify → DATA
+```mermaid
+flowchart TB
+    subgraph Encode["🔊 Sender — FSK Encoding"]
+        A["📦 Encrypted Packet"] --> B["Binary Bits"]
+        B --> C["+ CRC-16 Checksum"]
+        C --> D["+ ECC Parity (4 bytes)"]
+        D --> E["+ XOR Checksum"]
+        E --> F["17kHz Start Marker"]
+        F --> G["18kHz = bit 0 | 19.5kHz = bit 1"]
+        G --> H["20kHz End Marker"]
+        H --> I["🔈 Generate WAV → Play via Speaker"]
+    end
+
+    subgraph Air["🌊 Acoustic Channel"]
+        J["Near-Ultrasonic Sound Waves<br/>18–20 kHz (inaudible)"]
+    end
+
+    subgraph Decode["🎙️ Receiver — Goertzel Decoding"]
+        K["🎤 Record via Microphone"] --> L["PCM Sample Extraction"]
+        L --> M["Goertzel Algorithm<br/>(single-freq DFT)"]
+        M --> N["Detect Start Marker (17kHz)"]
+        N --> O["Classify: 18kHz→0 | 19.5kHz→1"]
+        O --> P["Detect End Marker (20kHz)"]
+        P --> Q["Verify CRC-16 + ECC + XOR"]
+        Q --> R["📦 Decrypted Packet"]
+    end
+
+    I -.-> J -.-> K
 ```
 
 ### 5. 💡 Li-Fi Light (Manchester Pulse Protocol)
@@ -212,12 +338,31 @@ DATA → Binary Bits → CRC-16 + ECC → FSK Tones (18-20kHz)
 | **Speed** | ~3.0 seconds |
 | **Range** | ~1 meter |
 
-```
-DATA → Binary Bits → CRC-16 + ECC → Manchester Pulses
-                                          ↓
-                     Flashlight ON/OFF → Air → Camera
-                                          ↓
-          Brightness Sampling → Transition Detection → Binary → DATA
+```mermaid
+flowchart TB
+    subgraph Encode["💡 Sender — Manchester Encoding"]
+        A["📦 Encrypted Packet"] --> B["Binary Bits"]
+        B --> C["+ CRC-16 + ECC + XOR"]
+        C --> D["8x Rapid Preamble Flashes<br/>(40ms half-period)"]
+        D --> E["Manchester Encode<br/>bit 1: HIGH→LOW | bit 0: LOW→HIGH"]
+        E --> F["End Pause (500ms)"]
+        F --> G["🔦 Flashlight ON/OFF via Camera Torch API"]
+    end
+
+    subgraph Air["💫 Optical Channel"]
+        H["Visible Light Pulses<br/>160ms bit period"]
+    end
+
+    subgraph Decode["📷 Receiver — Brightness Sampling"]
+        I["📸 Camera at 100Hz Frame Rate"] --> J["Brightness Value per Frame"]
+        J --> K["Adaptive Threshold<br/>(15th / 85th Percentile)"]
+        K --> L["Detect Preamble Transitions"]
+        L --> M["Manchester Decode<br/>First-half vs Second-half"]
+        M --> N["Verify CRC-16 + ECC + XOR"]
+        N --> O["📦 Decrypted Packet"]
+    end
+
+    G -.-> H -.-> I
 ```
 
 ---
@@ -226,47 +371,66 @@ DATA → Binary Bits → CRC-16 + ECC → Manchester Pulses
 
 AURA implements defense-in-depth with multiple cryptographic layers:
 
+```mermaid
+flowchart TB
+    subgraph L1["🔐 Layer 1 — Device Identity"]
+        DK["RSA-2048 Keypair<br/>node-forge on device"]
+        SS["SecureStore<br/>Keychain / Keystore"]
+        DK --> SS
+    end
+
+    subgraph L2["✍️ Layer 2 — Token Signing"]
+        TS["RSA-PSS + SHA-256<br/>Server private key signs tokens"]
+    end
+
+    subgraph L3["🔒 Layer 3 — Packet Encryption"]
+        PE["AES-256-GCM<br/>Ephemeral session keys (ECDH)"]
+    end
+
+    subgraph L4["🎫 Layer 4 — Authentication"]
+        JWT["RS256 JWT<br/>30-min access + 7-day refresh"]
+        PIN["bcrypt PIN Hash"]
+        BIO["Biometric<br/>Face ID / Fingerprint"]
+        OTP["OTP via Twilio SMS"]
+    end
+
+    subgraph L5["🛡️ Layer 5 — Transaction Integrity"]
+        TH["SHA-256 Hash Chain"]
+        DS["Double-Spend Prevention<br/>Token lock before txn"]
+        RL["Rate Limiting<br/>5/min OTP · 10/min verify · 3/min PIN"]
+    end
+
+    subgraph L6["👁️ Layer 6 — Monitoring"]
+        AL["AuditLogMiddleware<br/>Every request logged"]
+        MD["Multi-Device Tracking<br/>Old devices auto-revoked"]
+        RISK["ML Risk Engine<br/>ONNX fraud scoring"]
+    end
+
+    L1 --> L2 --> L3 --> L4 --> L5 --> L6
 ```
-┌─────────────────────────────────────────────┐
-│              SECURITY LAYERS                 │
-├──────────────────┬──────────────────────────┤
-│ Layer            │ Implementation           │
-├──────────────────┼──────────────────────────┤
-│ Device Keys      │ RSA-2048 (node-forge)    │
-│                  │ Stored in SecureStore     │
-│                  │ (Keychain / Keystore)     │
-├──────────────────┼──────────────────────────┤
-│ Token Signing    │ RSA-PSS + SHA-256        │
-│                  │ Server-side private key   │
-├──────────────────┼──────────────────────────┤
-│ Packet Encryption│ AES-256-GCM              │
-│                  │ Ephemeral session keys    │
-├──────────────────┼──────────────────────────┤
-│ JWT Auth         │ RS256 (asymmetric)       │
-│                  │ 30-min access + 7-day    │
-│                  │ refresh tokens           │
-├──────────────────┼──────────────────────────┤
-│ PIN Storage      │ bcrypt hash              │
-├──────────────────┼──────────────────────────┤
-│ Transaction Hash │ SHA-256 hash chain       │
-├──────────────────┼──────────────────────────┤
-│ Double-Spend     │ Token lock + DB check    │
-│ Prevention       │ before transaction       │
-├──────────────────┼──────────────────────────┤
-│ Rate Limiting    │ slowapi (5/min OTP,      │
-│                  │ 10/min verify, 3/min     │
-│                  │ PIN recovery)            │
-├──────────────────┼──────────────────────────┤
-│ App Lock         │ Mandatory PIN on boot    │
-│                  │ + biometric (Face ID/    │
-│                  │ fingerprint)             │
-├──────────────────┼──────────────────────────┤
-│ Multi-Device     │ Device tracking table    │
-│                  │ Old devices revoked      │
-├──────────────────┼──────────────────────────┤
-│ Audit Trail      │ AuditLogMiddleware       │
-│                  │ Every request logged     │
-└──────────────────┴──────────────────────────┘
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant U as 📱 User
+    participant B as ⚡ Backend
+    participant T as 📱 Twilio
+    participant R as 🔴 Redis
+
+    U->>B: POST /auth/request-otp {phone}
+    Note over B: Rate limit: 5/min
+    B->>T: Send SMS with 6-digit OTP
+    B->>R: Store OTP (5-min TTL)
+    T-->>U: SMS received
+    U->>B: POST /auth/verify-otp {phone, otp}
+    Note over B: Rate limit: 10/min
+    B->>R: Verify OTP
+    B->>B: Generate RSA-2048 keypair (if new user)
+    B->>B: Create RS256 JWT (30-min) + Refresh Token (7-day)
+    B-->>U: {access_token, refresh_token, user}
+    Note over U: Store tokens in SecureStore
+    U->>U: App Lock (PIN + biometric on every boot)
 ```
 
 ---
@@ -293,10 +457,28 @@ AURA uses a **RandomForest classifier** compiled to **ONNX** format for real-tim
 
 ### Model Pipeline
 
-```
-Training Data → scikit-learn RandomForest → skl2onnx → risk_model.onnx
-                                                             ↓
-                                             onnxruntime (backend inference)
+```mermaid
+flowchart LR
+    subgraph Training["🏋️ Training Pipeline"]
+        TD[("Training Data<br/>amount, mode, hour")] --> SK["scikit-learn<br/>RandomForestClassifier"]
+        SK --> SKL["skl2onnx<br/>Convert to ONNX"]
+        SKL --> MODEL["📦 risk_model.onnx"]
+    end
+
+    subgraph Inference["⚡ Runtime Inference"]
+        TXN["💸 New Transaction<br/>amount + mode + hour"] --> ORT["onnxruntime<br/>InferenceSession"]
+        MODEL --> ORT
+        ORT --> PROB["P(fraud)"]
+        PROB --> |"≥ 0.70"| BLOCK["🔴 Block"]
+        PROB --> |"≥ 0.35"| REVIEW["🟡 Review"]
+        PROB --> |"< 0.35"| APPROVE["🟢 Approve"]
+    end
+
+    subgraph Fallback["🔧 Heuristic Fallback"]
+        FB["If ONNX missing:<br/>amount > 50k → block<br/>amount > 20k → review<br/>Sound/Light → +0.20"]
+    end
+
+    ORT -. "Model not found" .-> FB
 ```
 
 The engine includes **heuristic fallback** if the ONNX model file is missing, ensuring the system always has risk scoring capability.
@@ -707,6 +889,108 @@ All routes are prefixed with `/api/v1/`. Interactive Swagger docs available at `
 ## 🗄️ Database Schema
 
 AURA uses **16 SQLAlchemy models** managed via Alembic migrations:
+
+```mermaid
+erDiagram
+    User ||--|| Wallet : "has"
+    User ||--o{ Token : "owns"
+    User ||--o{ BankAccount : "links"
+    User ||--o{ Transaction : "sends"
+    User ||--o{ Transaction : "receives"
+    User ||--o{ Contact : "manages"
+    User ||--o{ Device : "registers"
+    User ||--o{ KYCDocument : "submits"
+    User ||--o{ Dispute : "files"
+    User ||--o{ UserModePreferences : "configures"
+    User ||--o{ Alert : "receives"
+    User ||--o{ ActivityLog : "generates"
+    Token ||--o| Transaction : "used in"
+    Token ||--o{ SyncQueue : "queued"
+    Transaction ||--o{ RiskLog : "scored by"
+    Transaction ||--o{ Dispute : "disputed"
+    User ||--o{ PaymentSession : "creates"
+    User ||--o{ QRSession : "initiates"
+
+    User {
+        uuid id PK
+        string phone UK
+        string email
+        string full_name
+        text public_key
+        string pin_hash
+        string kyc_status
+        string fcm_token
+        string role
+    }
+
+    Wallet {
+        uuid id PK
+        uuid user_id FK
+        decimal balance
+    }
+
+    Token {
+        uuid id PK
+        uuid wallet_id FK
+        decimal token_value
+        string nonce
+        string hash
+        text signature
+        string status
+        datetime expires_at
+    }
+
+    Transaction {
+        uuid id PK
+        uuid sender_id FK
+        uuid receiver_id FK
+        uuid token_id FK
+        string mode
+        float risk_score
+        string status
+        string txn_hash
+    }
+
+    SyncQueue {
+        uuid id PK
+        uuid token_id FK
+        json payload
+        string status
+    }
+
+    BankAccount {
+        uuid id PK
+        uuid user_id FK
+        string account_number
+        string ifsc_code
+        boolean is_primary
+    }
+
+    RiskLog {
+        uuid id PK
+        uuid user_id FK
+        uuid transaction_id FK
+        float risk_score
+        string decision
+    }
+
+    Device {
+        uuid id PK
+        uuid user_id FK
+        string device_name
+        text public_key
+        boolean is_active
+    }
+
+    Dispute {
+        uuid id PK
+        uuid user_id FK
+        uuid transaction_id FK
+        string reason
+        string status
+        string resolution
+    }
+```
 
 | Model | Table | Description |
 |-------|-------|-------------|
