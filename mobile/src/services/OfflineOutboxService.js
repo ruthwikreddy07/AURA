@@ -230,7 +230,7 @@ class OfflineOutboxService {
     try {
       const token = await SecureStore.getItemAsync("auth_token");
       const userId = await SecureStore.getItemAsync("user_id");
-      const apiBase = process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:8000/api/v1";
+      const apiBase = "https://aura-backend-gk3l.onrender.com/api/v1";
 
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -274,7 +274,7 @@ class OfflineOutboxService {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const apiBase = process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:8000/api/v1";
+    const apiBase = "https://aura-backend-gk3l.onrender.com/api/v1";
 
     const res = await fetch(`${apiBase}${item.endpoint}`, {
       method: item.method,

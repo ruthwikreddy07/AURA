@@ -18,7 +18,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000/api/v1';
+const API_BASE = 'https://aura-backend-gk3l.onrender.com/api/v1';
 
 // ── Notification Presentation (how it looks while the app is in foreground) ───
 Notifications.setNotificationHandler({
