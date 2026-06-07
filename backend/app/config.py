@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str
-    REDIS_URL: str
+    REDIS_URL: str = "redis://localhost:6379"
     JWT_SECRET: str
     JWT_ALGORITHM: str = "RS256"
     JWT_EXPIRY_MINUTES: int = 30
