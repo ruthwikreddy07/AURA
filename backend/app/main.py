@@ -35,11 +35,6 @@ from app.limiter import limiter
 # NOTE: Schema is now managed by Alembic migrations.
 # Run: py -3.12 -m alembic upgrade head
 
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
 app = FastAPI(
     title="AURA",
     description="Offline Adaptive Payment Protocol API",
@@ -58,7 +53,7 @@ if settings.DEBUG:
 else:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=ALLOWED_ORIGINS,
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
