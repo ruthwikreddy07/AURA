@@ -51,13 +51,33 @@ if settings.DEBUG:
         allow_headers=["*"],
     )
 else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Parse CORS origins dynamically
+    raw_origins = settings.CORS_ORIGINS.strip()
+    if raw_origins == "*":
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex="https?://.*",
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        if raw_origins.startswith("[") and raw_origins.endswith("]"):
+            import json
+            try:
+                cors_origins = json.loads(raw_origins)
+            except Exception:
+                cors_origins = [x.strip() for x in raw_origins.split(",") if x.strip()]
+        else:
+            cors_origins = [x.strip() for x in raw_origins.split(",") if x.strip()]
+            
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore

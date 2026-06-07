@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     TOKEN_PRIVATE_KEY_PATH: Path
     TOKEN_PUBLIC_KEY_PATH: Path
     DEBUG: bool = False
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -59,20 +59,6 @@ class Settings(BaseSettings):
             raise ValueError(f"Key path is not a file: {v}")
         return v
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v: any) -> list[str]:
-        if isinstance(v, str):
-            if v.startswith("[") and v.endswith("]"):
-                import json
-                try:
-                    return json.loads(v)
-                except Exception:
-                    pass
-            return [x.strip() for x in v.split(",") if x.strip()]
-        elif isinstance(v, list):
-            return v
-        return ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
 settings = Settings()
