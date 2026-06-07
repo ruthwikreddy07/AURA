@@ -6,7 +6,7 @@ import forge from "node-forge";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
-import { requestOtp, verifyOtp, completeProfile } from "../api/api";
+import { requestOtp, verifyOtp, completeProfile, API_BASE } from "../api/api";
 import Input from "../components/Input";
 import Button from "../components/Button";
 
@@ -86,7 +86,7 @@ export default function AuthScreen({ navigation }) {
     try {
       await requestOtp({ phone_number: fullPhone });
       setStep('otp');
-    } catch (e) { setErrorMsg(e.message || "Failed to send OTP."); }
+    } catch (e) { setErrorMsg(`${e.message || "Failed to send OTP."} (API: ${API_BASE})`); }
     finally { setLoading(false); }
   };
 
@@ -114,7 +114,7 @@ export default function AuthScreen({ navigation }) {
         await storePrivateKey(privateKeyPem);
         await saveTokensAndRoute(res.access_token, res.user_id, null, res.refresh_token);
       }
-    } catch (e) { setErrorMsg(e.message || "Invalid OTP."); }
+    } catch (e) { setErrorMsg(`${e.message || "Invalid OTP."} (API: ${API_BASE})`); }
     finally { setLoading(false); setKeygenStatus(""); }
   };
 
@@ -132,7 +132,7 @@ export default function AuthScreen({ navigation }) {
       });
       await storePrivateKey(deviceKeys.privateKeyPem);
       await saveTokensAndRoute(res.access_token, res.id, pin, res.refresh_token);
-    } catch (e) { setErrorMsg(e.message || "Failed to complete setup."); }
+    } catch (e) { setErrorMsg(`${e.message || "Failed to complete setup."} (API: ${API_BASE})`); }
     finally { setLoading(false); }
   };
 
@@ -167,6 +167,9 @@ export default function AuthScreen({ navigation }) {
                 {step === 'phone' ? "Your phone number is your universal identity."
                   : step === 'otp' ? "Enter the 6-digit code sent to your phone."
                   : "Setup your 6-digit offline PIN to encrypt your local vault."}
+              </Text>
+              <Text style={{ fontSize: 10, color: "#64748b", marginTop: 8, opacity: 0.6 }}>
+                API Endpoint: {API_BASE}
               </Text>
             </Animated.View>
 
