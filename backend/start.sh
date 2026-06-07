@@ -1,4 +1,8 @@
 #!/bin/sh
+# Create core database tables first if they don't exist
+echo "Initializing core database tables..."
+python create_tables.py
+
 # Run database migrations
 echo "Running database migrations..."
 python -m alembic upgrade head
