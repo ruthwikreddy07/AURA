@@ -6,7 +6,7 @@ import forge from "node-forge";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
-import { requestOtp, verifyOtp, completeProfile, API_BASE } from "../api/api";
+import { requestOtp, verifyOtp, completeProfile } from "../api/api";
 import Input from "../components/Input";
 import Button from "../components/Button";
 
@@ -67,6 +67,7 @@ export default function AuthScreen({ navigation }) {
   const [errorMsg, setErrorMsg] = useState("");
   const [keygenStatus, setKeygenStatus] = useState("");
   const [deviceKeys, setDeviceKeys] = useState(null);
+  const keygenStartedRef = useRef(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -76,6 +77,21 @@ export default function AuthScreen({ navigation }) {
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true })
     ]).start();
+
+    // Pre-generate RSA keypair in background when OTP screen loads
+    if (step === 'otp' && !keygenStartedRef.current && !deviceKeys) {
+      keygenStartedRef.current = true;
+      setKeygenStatus("Securing your device…");
+      generateDeviceKeypair()
+        .then((keys) => {
+          setDeviceKeys(keys);
+          setKeygenStatus("");
+        })
+        .catch(() => {
+          keygenStartedRef.current = false;
+          setKeygenStatus("");
+        });
+    }
   }, [step]);
 
   const handleRequestOtp = async () => {
@@ -86,35 +102,39 @@ export default function AuthScreen({ navigation }) {
     try {
       await requestOtp({ phone_number: fullPhone });
       setStep('otp');
-    } catch (e) { setErrorMsg(`${e.message || "Failed to send OTP."} (API: ${API_BASE})`); }
+    } catch (e) { setErrorMsg(e.message || "Failed to send OTP."); }
     finally { setLoading(false); }
   };
 
-  // Step 2: Verify OTP & Generate Real RSA Keys
+  // Step 2: Verify OTP (keys are pre-generated in background)
   const handleVerifyOtp = async () => {
     setErrorMsg("");
     if (!otp || otp.length < 4) { setErrorMsg("Please enter the OTP."); return; }
     setLoading(true);
     try {
-      setKeygenStatus("Generating 2048-bit RSA keypair…");
-      const { deviceId, publicKeyPem, privateKeyPem } = await generateDeviceKeypair();
-      setKeygenStatus("Keypair generated ✓");
-      setDeviceKeys({ deviceId, publicKeyPem, privateKeyPem });
+      // Use pre-generated keys or generate now if not ready yet
+      let keys = deviceKeys;
+      if (!keys) {
+        setKeygenStatus("Generating security keys…");
+        keys = await generateDeviceKeypair();
+        setDeviceKeys(keys);
+      }
+      setKeygenStatus("Verifying…");
 
       const fullPhone = `${countryCode}${phoneNumber}`;
       const res = await verifyOtp({
         phone_number: fullPhone, otp,
-        device_id: deviceId,
-        device_public_key: publicKeyPem,
+        device_id: keys.deviceId,
+        device_public_key: keys.publicKeyPem,
       });
 
       if (res.is_new_user) {
         setStep('profile');
       } else {
-        await storePrivateKey(privateKeyPem);
+        await storePrivateKey(keys.privateKeyPem);
         await saveTokensAndRoute(res.access_token, res.user_id, null, res.refresh_token);
       }
-    } catch (e) { setErrorMsg(`${e.message || "Invalid OTP."} (API: ${API_BASE})`); }
+    } catch (e) { setErrorMsg(e.message || "Invalid OTP."); }
     finally { setLoading(false); setKeygenStatus(""); }
   };
 
@@ -132,7 +152,7 @@ export default function AuthScreen({ navigation }) {
       });
       await storePrivateKey(deviceKeys.privateKeyPem);
       await saveTokensAndRoute(res.access_token, res.id, pin, res.refresh_token);
-    } catch (e) { setErrorMsg(`${e.message || "Failed to complete setup."} (API: ${API_BASE})`); }
+    } catch (e) { setErrorMsg(e.message || "Failed to complete setup."); }
     finally { setLoading(false); }
   };
 
@@ -168,9 +188,7 @@ export default function AuthScreen({ navigation }) {
                   : step === 'otp' ? "Enter the 6-digit code sent to your phone."
                   : "Setup your 6-digit offline PIN to encrypt your local vault."}
               </Text>
-              <Text style={{ fontSize: 10, color: "#64748b", marginTop: 8, opacity: 0.6 }}>
-                API Endpoint: {API_BASE}
-              </Text>
+
             </Animated.View>
 
             <Animated.View style={[styles.glassCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -201,7 +219,7 @@ export default function AuthScreen({ navigation }) {
                     <View style={styles.keygenBox}><Text style={styles.keygenText}>🔐 {keygenStatus}</Text></View>
                   )}
                   <Button onPress={handleVerifyOtp} disabled={loading} style={styles.btn}>
-                    {loading ? "Generating RSA Keypair..." : "Verify Identity"}
+                    {loading ? "Verifying…" : "Verify Identity"}
                   </Button>
                   <TouchableOpacity onPress={() => setStep('phone')} style={styles.toggleHolder}>
                     <Text style={styles.toggleText}>Wrong number? <Text style={styles.toggleTextBold}>Edit</Text></Text>
