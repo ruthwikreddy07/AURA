@@ -9,6 +9,7 @@ import { useTheme, useColors } from "./src/context/ThemeContext";
 
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 // Screens
 import WelcomeScreen from "./src/screens/WelcomeScreen";
@@ -57,16 +58,16 @@ function MoreMenuScreen({ navigation }) {
   const c = useColors();
 
   const items = [
-    { label: "Log into Web AURA", icon: "💻", screen: "ScanWebQR" },
-    { label: "Wallet", icon: "💳", screen: "Wallet" },
-    { label: "Bank Accounts", icon: "🏦", screen: "BankAccounts" },
-    { label: "Offline Tokens", icon: "🪙", screen: "Tokens" },
-    { label: "Profile & KYC", icon: "👤", screen: "Profile" },
-    { label: "Notifications", icon: "🔔", screen: "Notifications" },
-    { label: "Mode Control", icon: "📡", screen: "ModeControl" },
-    { label: "Sync Status", icon: "🔄", screen: "SyncStatus" },
-    { label: "Analytics", icon: "📊", screen: "Analytics" },
-    { label: "Settings", icon: "⚙️", screen: "Settings" },
+    { label: "Log into Web AURA", icon: "laptop-outline", screen: "ScanWebQR" },
+    { label: "Wallet", icon: "wallet-outline", screen: "Wallet" },
+    { label: "Bank Accounts", icon: "business-outline", screen: "BankAccounts" },
+    { label: "Offline Tokens", icon: "shield-checkmark-outline", screen: "Tokens" },
+    { label: "Profile & KYC", icon: "person-outline", screen: "Profile" },
+    { label: "Notifications", icon: "notifications-outline", screen: "Notifications" },
+    { label: "Mode Control", icon: "radio-outline", screen: "ModeControl" },
+    { label: "Sync Status", icon: "sync-outline", screen: "SyncStatus" },
+    { label: "Analytics", icon: "analytics-outline", screen: "Analytics" },
+    { label: "Settings", icon: "settings-outline", screen: "Settings" },
   ];
 
   return (
@@ -83,7 +84,7 @@ function MoreMenuScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <View style={[menuStyles.iconBox, { backgroundColor: c.indigo + "10" }]}>
-              <Text style={{ fontSize: 20 }}>{item.icon}</Text>
+              <Ionicons name={item.icon} size={20} color={c.indigo} />
             </View>
             <Text style={[menuStyles.label, { color: c.text }]}>{item.label}</Text>
             <Text style={{ color: c.textMuted, fontSize: 18 }}>›</Text>
@@ -115,19 +116,34 @@ function TabNavigator() {
   const c = useColors();
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Send') iconName = focused ? 'paper-plane' : 'paper-plane-outline';
+          else if (route.name === 'Receive') iconName = focused ? 'download' : 'download-outline';
+          else if (route.name === 'History') iconName = focused ? 'time' : 'time-outline';
+          else if (route.name === 'More') iconName = focused ? 'grid' : 'grid-outline';
+          return <Ionicons name={iconName} size={22} color={color} />;
+        },
         tabBarStyle: {
           backgroundColor: c.card,
           borderTopColor: c.border,
-          height: 60,
-          paddingBottom: 8,
+          borderTopWidth: 1,
+          height: 65,
+          paddingBottom: 10,
           paddingTop: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 12,
         },
         tabBarActiveTintColor: c.indigo,
         tabBarInactiveTintColor: c.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
-      }}
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", letterSpacing: 0.2 },
+      })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: "Home" }} />
       <Tab.Screen name="Send" component={SendScreen} options={{ tabBarLabel: "Send" }} />

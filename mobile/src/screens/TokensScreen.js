@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useColors } from "../context/ThemeContext";
 import { getUserTokens, issueToken } from "../api/api";
@@ -21,12 +22,7 @@ export default function TokensScreen({ navigation }) {
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
-      // Tokens are fetched by wallet_id — for now we use userId as fallback
-      const res = await getUserTokens(userId).catch(() => [
-        { id: "TKN-1234", token_value: 1000, remaining_value: 750, status: "active", issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString() },
-        { id: "TKN-5678", token_value: 500, remaining_value: 0, status: "spent", issued_at: new Date().toISOString(), expires_at: new Date().toISOString() },
-        { id: "TKN-9012", token_value: 2000, remaining_value: 2000, status: "active", issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 172800000).toISOString() },
-      ]);
+      const res = await getUserTokens(userId).catch(() => []);
       setTokens(res);
     } catch (e) {
       console.error(e);
@@ -111,7 +107,11 @@ export default function TokensScreen({ navigation }) {
         <Text style={[styles.sectionTitle, { color: c.text, marginTop: 24, marginBottom: 16 }]}>Your Tokens</Text>
         
         {tokens.length === 0 ? (
-          <Text style={{ color: c.textMuted, textAlign: "center", padding: 20 }}>No tokens provisioned.</Text>
+          <View style={{ alignItems: 'center', padding: 32, gap: 12 }}>
+            <Ionicons name="shield-outline" size={40} color={c.textMuted} />
+            <Text style={{ color: c.textMuted, textAlign: "center", fontSize: 15, fontWeight: '500' }}>No tokens provisioned yet</Text>
+            <Text style={{ color: c.textMuted, textAlign: "center", fontSize: 13 }}>Issue tokens above to enable offline payments</Text>
+          </View>
         ) : (
           tokens.map((tkn, i) => {
             const spentPct = getSpendPercent(tkn);

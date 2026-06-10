@@ -23,6 +23,7 @@
     "expo": "~55.0.8",
     "expo-av": "^16.0.8",
     "expo-camera": "~55.0.18",
+    "expo-contacts": "~55.0.14",
     "expo-crypto": "~55.0.15",
     "expo-dev-client": "^55.0.34",
     "expo-local-authentication": "~55.0.9",

@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, Numeric, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +43,10 @@ class Transaction(Base):
     risk_score: Mapped[float] = mapped_column(
         Float,
         nullable=False,
+    )
+    amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(precision=18, scale=2),
+        nullable=True,
     )
     status: Mapped[str] = mapped_column(
         String(32),
