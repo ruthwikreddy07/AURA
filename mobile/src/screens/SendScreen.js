@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, Alert, FlatList, TextInput } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
+import { CameraView } from "expo-camera";
+import * as Contacts from "expo-contacts";
+import { Ionicons } from "@expo/vector-icons";
 
-import { useColors } from "../context/ThemeContext";
-import { createPaymentSession, submitMotionProof, encryptPacket, verifyTransactionPin } from "../api/api";
+import { useColors, useTheme } from "../context/ThemeContext";
+import { createPaymentSession, submitMotionProof, encryptPacket, verifyTransactionPin, searchAuraUsers, getUserWallet, getUserTokens, issueToken } from "../api/api";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -24,17 +27,22 @@ const TX_LOCK_TIMEOUT = 5000; // 5 seconds
 
 export default function SendScreen({ navigation }) {
   const c = useColors();
+  const { isOffline } = useTheme();
   const [step, setStep] = useState("input");
   const [amount, setAmount] = useState("");
   const [receiverId, setReceiverId] = useState("");
   const [activeMode, setActiveMode] = useState("QR");
   const [loading, setLoading] = useState(false);
   const [pin, setPin] = useState("");
+  const [showContacts, setShowContacts] = useState(false);
+  const [contactsList, setContactsList] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
 
   const [session, setSession] = useState(null);
   const [riskScore, setRiskScore] = useState(10);
   const [riskLevel, setRiskLevel] = useState("Safe");
   const [qrData, setQrData] = useState(null);
+  const [resolvedReceiverId, setResolvedReceiverId] = useState("");
   const [encryptedPacketStr, setEncryptedPacketStr] = useState(null);
 
   // BLE state
@@ -69,6 +77,26 @@ export default function SendScreen({ navigation }) {
     Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 50, useNativeDriver: true }).start();
   };
 
+  const loadContacts = async () => {
+    if (showContacts) {
+      setShowContacts(false);
+      return;
+    }
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status === 'granted') {
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers],
+      });
+      if (data.length > 0) {
+        const validContacts = data.filter(c => c.phoneNumbers && c.phoneNumbers.length > 0);
+        setContactsList(validContacts);
+        setShowContacts(true);
+      }
+    } else {
+      Alert.alert("Permission Denied", "Contact permissions are required to select a receiver.");
+    }
+  };
+
   /* ═══ DOUBLE-SPEND LOCK ═══ */
   const acquireTxLock = async () => {
     const existing = await AsyncStorage.getItem(TX_LOCK_KEY);
@@ -91,19 +119,40 @@ export default function SendScreen({ navigation }) {
     try {
       const senderId = await SecureStore.getItemAsync("user_id");
       const pubKey = await SecureStore.getItemAsync("device_public_key") || "SENDER_PUB_KEY_MOCK";
-      const sess = await createPaymentSession({
-        sender_id: senderId,
-        receiver_id: receiverId,
-        ephemeral_pub_key: pubKey,
-      });
-      setSession(sess);
+
+      let finalReceiverId = receiverId;
+      if (/^\+?\d{8,15}$/.test(receiverId.replace(/\D/g, ''))) {
+        const users = await searchAuraUsers(receiverId.replace(/\D/g, ''));
+        if (users && users.length > 0) {
+          finalReceiverId = users[0].id;
+        } else {
+          Alert.alert("User Not Found", "No AURA user found with this phone number.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      setResolvedReceiverId(finalReceiverId);
+      if (isOffline) {
+        const sessId = "off_" + Math.random().toString(36).substring(2) + "_" + Date.now();
+        const sess = { session_id: sessId, session_key: "offline_key" };
+        setSession(sess);
+      } else {
+        const sess = await createPaymentSession({
+          sender_id: senderId,
+          receiver_id: finalReceiverId,
+          mode: activeMode,
+          ephemeral_pub_key: pubKey,
+        });
+        setSession(sess);
+      }
       const score = Number(amount) > 10000 ? 85 : 10;
       setRiskScore(score);
       setRiskLevel(score > 70 ? "High Risk" : "Safe");
       setStep("risk");
       slideIn();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", e.message || "Failed to create session");
     } finally {
       setLoading(false);
     }
@@ -132,11 +181,45 @@ export default function SendScreen({ navigation }) {
       await acquireTxLock();
 
       const senderId = await SecureStore.getItemAsync("user_id");
-      await submitMotionProof({ session_id: session.session_id, user_id: senderId, motion_hash: "sender-motion-ok" });
 
-      const payload = { sender_id: senderId, receiver_id: receiverId, token_id: Math.random().toString(36).substring(2), risk_score: riskScore / 100 };
-      const encryptedResp = await encryptPacket({ session_key: session.session_key, payload });
-      const packetStr = JSON.stringify({ s: session.session_id, n: encryptedResp.nonce, c: encryptedResp.ciphertext });
+      // Select/provision token
+      const wallets = await getUserWallet(senderId);
+      const offlineWallet = wallets.find(w => w.wallet_type === "offline");
+      if (!offlineWallet) throw new Error("Offline wallet not found.");
+
+      const tokens = await getUserTokens(offlineWallet.id).catch(() => []);
+      let selectedToken = tokens.find(t => t.status === "active" && Number(t.remaining_value) >= Number(amount));
+
+      if (!selectedToken) {
+        if (isOffline) {
+          throw new Error("No active offline token found with sufficient balance.");
+        }
+        selectedToken = await issueToken({
+          wallet_id: offlineWallet.id,
+          token_value: Number(amount),
+          expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+        });
+      }
+
+      const payload = { 
+        sender_id: senderId, 
+        receiver_id: resolvedReceiverId || receiverId, 
+        token_id: selectedToken.id, 
+        amount: Number(amount), 
+        risk_score: riskScore / 100,
+        mode: activeMode,
+        is_offline: isOffline
+      };
+
+      let packetStr;
+      if (isOffline) {
+        packetStr = JSON.stringify({ s: session.session_id, payload });
+      } else {
+        await submitMotionProof({ session_id: session.session_id, user_id: senderId, motion_hash: "sender-motion-ok" });
+        const encryptedResp = await encryptPacket({ session_key: session.session_key, payload });
+        packetStr = JSON.stringify({ s: session.session_id, n: encryptedResp.nonce, c: encryptedResp.ciphertext });
+      }
+
       setEncryptedPacketStr(packetStr);
 
       if (activeMode === "QR")          { setQrData(packetStr); setStep("qr-display"); }
@@ -219,7 +302,7 @@ export default function SendScreen({ navigation }) {
   };
 
   const reset = () => {
-    setStep("input"); setAmount(""); setReceiverId(""); setPin(""); setQrData(null); setEncryptedPacketStr(null);
+    setStep("input"); setAmount(""); setReceiverId(""); setResolvedReceiverId(""); setPin(""); setQrData(null); setEncryptedPacketStr(null);
     setBleDevices([]); setBleStatus("idle"); setNfcStatus("idle"); setSoundStatus("idle"); setLightStatus("idle");
     setTorchOn(false); setSoundProgress(0); setLightProgress({ bitIndex: 0, totalBits: 0 });
     BLEService.stopScan(); NFCService.cancelRequest(); SoundService.destroy(); LightService.destroy();
@@ -246,7 +329,56 @@ export default function SendScreen({ navigation }) {
           {/* ═══ INPUT ═══ */}
           {step === "input" && (
             <Card>
-              <Input label="Receiver User ID" placeholder="User ID" value={receiverId} onChangeText={setReceiverId} />
+              <View style={{flexDirection: 'row', alignItems: 'flex-end', gap: 8}}>
+                <View style={{flex: 1}}>
+                  <Input label="Receiver User ID or Phone" placeholder="User ID / Phone" value={receiverId} onChangeText={setReceiverId} />
+                </View>
+                <Button variant="secondary" onPress={loadContacts} style={{paddingHorizontal: 12, marginBottom: 8}}>
+                  <Ionicons name="people-outline" size={24} color={c.indigo} />
+                </Button>
+              </View>
+              
+              {showContacts && (
+                <View style={{maxHeight: 300, borderWidth: 1, borderColor: c.border, borderRadius: 12, marginTop: 8, marginBottom: 16, overflow: 'hidden', backgroundColor: c.card}}>
+                  <View style={{padding: 10, borderBottomWidth: 1, borderBottomColor: c.border, flexDirection: 'row', alignItems: 'center'}}>
+                    <Ionicons name="search" size={18} color={c.textSecondary} style={{marginRight: 8}} />
+                    <TextInput 
+                      style={{flex: 1, color: c.text, fontSize: 15, padding: 0}}
+                      placeholder="Search contacts..." 
+                      placeholderTextColor={c.textMuted}
+                      value={contactSearch} 
+                      onChangeText={setContactSearch} 
+                    />
+                  </View>
+                  <FlatList
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    data={contactsList.filter(contact => 
+                      (contact.name || '').toLowerCase().includes(contactSearch.toLowerCase()) || 
+                      (contact.phoneNumbers?.[0]?.number || '').includes(contactSearch)
+                    )}
+                    keyExtractor={(item) => item.id}
+                    initialNumToRender={15}
+                    renderItem={({item}) => {
+                      const phone = item.phoneNumbers[0].number;
+                      return (
+                        <TouchableOpacity 
+                          style={{padding: 12, borderBottomWidth: 1, borderBottomColor: c.border}}
+                          onPress={() => {
+                            setReceiverId(phone.replace(/\D/g, ''));
+                            setShowContacts(false);
+                            setContactSearch("");
+                          }}
+                        >
+                          <Text style={{color: c.text, fontWeight: '600'}}>{item.name}</Text>
+                          <Text style={{color: c.textSecondary, fontSize: 12}}>{phone}</Text>
+                        </TouchableOpacity>
+                      )
+                    }}
+                  />
+                </View>
+              )}
+
               <Input label="Amount" placeholder="₹ 0.00" value={amount} onChangeText={setAmount} keyboardType="numeric" />
               <Text style={[styles.label, { color: c.textSecondary, marginTop: 16 }]}>Transmission Mode</Text>
               <View style={styles.modeRow}>
@@ -257,7 +389,7 @@ export default function SendScreen({ navigation }) {
                   </TouchableOpacity>
                 ))}
               </View>
-              <Button onPress={handleNext} disabled={loading || !amount} style={{ marginTop: 32 }}>
+              <Button onPress={handleNext} disabled={loading || !amount || !receiverId} style={{ marginTop: 32 }}>
                 {loading ? "Processing..." : "Continue"}
               </Button>
             </Card>
@@ -376,6 +508,12 @@ export default function SendScreen({ navigation }) {
           {/* ═══ LIGHT FLASH ═══ */}
           {step === "light-flash" && (
             <Card style={{ alignItems: "center", paddingVertical: 40 }}>
+              {/* Hidden CameraView for real torch control */}
+              <CameraView
+                style={{ width: 1, height: 1, opacity: 0 }}
+                facing="back"
+                enableTorch={torchOn}
+              />
               {/* Visual torch indicator */}
               <View style={[styles.torchIndicator, { backgroundColor: torchOn ? c.amber : c.border }]}>
                 <Text style={{ fontSize: 48 }}>{torchOn ? "💡" : "🔦"}</Text>
@@ -393,6 +531,9 @@ export default function SendScreen({ navigation }) {
               <View style={[styles.progressBar, { backgroundColor: c.border }]}>
                 <View style={[styles.progressFill, { width: `${lightProgress.totalBits ? (lightProgress.bitIndex / lightProgress.totalBits * 100) : 0}%`, backgroundColor: c.amber }]} />
               </View>
+              <Text style={{ color: c.textMuted, fontSize: 12, marginTop: 8 }}>
+                {lightProgress.totalBits ? `Bit ${lightProgress.bitIndex} of ${lightProgress.totalBits}` : 'Preparing...'}
+              </Text>
               <Button variant="secondary" style={{ width: "100%", marginTop: 24 }} onPress={() => { LightService.destroy(); reset(); }}>Cancel</Button>
             </Card>
           )}

@@ -78,6 +78,7 @@ def submit_payment_packet(payload: PaymentPacketRequest, db: Session = Depends(g
         token_id=data["token_id"],
         mode=session.mode,
         risk_score=data.get("risk_score", 0.1),
+        amount=data.get("amount"),
     )
     session.status = "completed"
     db.flush()

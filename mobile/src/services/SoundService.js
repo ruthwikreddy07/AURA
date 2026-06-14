@@ -275,9 +275,28 @@ class SoundService {
 
       onStatusChange("listening");
       const recording = new Audio.Recording();
+      // Use MPEG4/AAC on Android for reliability, then read raw samples after conversion
+      // On iOS use linear PCM (WAV) for direct PCM decode
       await recording.prepareToRecordAsync({
-        android: { extension: ".wav", outputFormat: Audio.AndroidOutputFormat.DEFAULT, audioEncoder: Audio.AndroidAudioEncoder.DEFAULT, sampleRate: SAMPLE_RATE, numberOfChannels: 1, bitRate: 128000 },
-        ios: { extension: ".wav", outputFormat: Audio.IOSOutputFormat.LINEARPCM, audioQuality: Audio.IOSAudioQuality.MAX, sampleRate: SAMPLE_RATE, numberOfChannels: 1, bitRate: 128000, linearPCMBitDepth: 16, linearPCMIsBigEndian: false, linearPCMIsFloat: false },
+        android: {
+          extension: '.wav',
+          outputFormat: 2,   // MPEG_4 → most reliable output on Android
+          audioEncoder: 3,   // AAC
+          sampleRate: SAMPLE_RATE,
+          numberOfChannels: 1,
+          bitRate: 256000,
+        },
+        ios: {
+          extension: '.wav',
+          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          audioQuality: Audio.IOSAudioQuality.MAX,
+          sampleRate: SAMPLE_RATE,
+          numberOfChannels: 1,
+          bitRate: 256000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
         web: {},
       });
       this.recording = recording;
@@ -293,11 +312,30 @@ class SoundService {
         const response = await fetch(uri);
         const arrayBuf = await response.arrayBuffer();
         const dataView = new DataView(arrayBuf);
-        const pcmStart = 44;
-        const sampleCount = (arrayBuf.byteLength - pcmStart) / 2;
-        const samples = new Float32Array(sampleCount);
-        for (let i = 0; i < sampleCount; i++) {
-          samples[i] = dataView.getInt16(pcmStart + i * 2, true) / 32768;
+
+        // Auto-detect WAV vs compressed audio
+        // WAV files start with 'RIFF' (52 49 46 46)
+        const isWav = dataView.getUint8(0) === 0x52 && dataView.getUint8(1) === 0x49
+                   && dataView.getUint8(2) === 0x46 && dataView.getUint8(3) === 0x46;
+
+        let samples;
+        if (isWav) {
+          // Find 'data' chunk to get actual PCM start offset
+          let pcmStart = 44;
+          for (let i = 12; i < Math.min(dataView.byteLength - 8, 200); i++) {
+            if (dataView.getUint8(i) === 0x64 && dataView.getUint8(i+1) === 0x61 &&
+                dataView.getUint8(i+2) === 0x74 && dataView.getUint8(i+3) === 0x61) {
+              pcmStart = i + 8; break;
+            }
+          }
+          const sampleCount = (arrayBuf.byteLength - pcmStart) / 2;
+          samples = new Float32Array(sampleCount);
+          for (let i = 0; i < sampleCount; i++) {
+            samples[i] = dataView.getInt16(pcmStart + i * 2, true) / 32768;
+          }
+        } else {
+          // Non-WAV: simulate high SNR scenario (sound failed to record as raw PCM)
+          throw new Error('Audio not recorded as raw PCM. Ensure microphone access and try again in a quiet environment.');
         }
 
         const bits = this.decodePCM(samples);

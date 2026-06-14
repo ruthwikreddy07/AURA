@@ -19,6 +19,7 @@ def create_transaction(
     token_id: str,
     mode: str,
     risk_score: float,
+    amount: float | None = None,
 ) -> Transaction:
     now = datetime.now(timezone.utc)
 
@@ -26,8 +27,8 @@ def create_transaction(
     if token is None:
         raise ValueError("Token not found")
 
-    if token.status != "active":
-        raise ValueError("Token already spent or inactive")
+    if token.status in ("spent", "expired"):
+        raise ValueError("Token already spent or expired")
 
     # Reconstruct the payload that was originally signed and hashed.
     # Token model stores: wallet_id, token_value, nonce, expires_at — same
@@ -46,31 +47,36 @@ def create_transaction(
     if not verify_token(token_payload, token.signature):
         raise ValueError("Invalid token signature")
 
-    existing_txn = (
-        db.query(Transaction)
-        .filter(Transaction.token_id == uuid.UUID(token_id))
-        .first()
-    )
-    if existing_txn:
-        risk = RiskLog(
-            user_id=uuid.UUID(sender_id),
-            transaction_id=None,
-            risk_score=1.0,
-            decision="double_spend_detected",
-        )
-        db.add(risk)
-        db.flush()
-        raise ValueError("Token already used in another transaction")
+    from decimal import Decimal
+    spend_amount = Decimal(str(amount)) if amount is not None else token.remaining_value
 
-    token.status = "locked"
+    if spend_amount <= 0:
+        raise ValueError("Amount must be greater than zero")
+    if spend_amount > token.remaining_value:
+        raise ValueError("Insufficient token balance")
+
+    # Update token remaining balance
+    token.remaining_value -= spend_amount
+    if token.remaining_value == 0:
+        token.status = "spent"
+        token.spent_at = now
+    else:
+        token.status = "active"  # keep active for splits
     db.flush()
 
-    amount = float(token.token_value)
-    risk_result = evaluate_transaction(amount=amount, mode=mode, timestamp=now)
+    amount_float = float(spend_amount)
+    risk_result = evaluate_transaction(amount=amount_float, mode=mode, timestamp=now)
     risk_score = risk_result["risk_score"]
     decision = risk_result["decision"]
 
     if decision == "block":
+        # Refund token value on block
+        token.remaining_value += spend_amount
+        if token.status == "spent":
+            token.status = "active"
+            token.spent_at = None
+        db.flush()
+
         risk = RiskLog(
             user_id=uuid.UUID(sender_id),
             transaction_id=None,
@@ -80,6 +86,34 @@ def create_transaction(
         db.add(risk)
         db.flush()
         raise ValueError("Transaction blocked by risk engine")
+
+    # Update sender and receiver wallet balances dynamically
+    from app.models.wallet import Wallet
+    from app.services import wallet_service
+
+    # Sender offline wallet
+    sender_wallet = db.query(Wallet).filter(
+        Wallet.user_id == uuid.UUID(sender_id),
+        Wallet.wallet_type == "offline"
+    ).first()
+    if not sender_wallet:
+        sender_wallet = wallet_service.create_wallet(db, user_id=sender_id, wallet_type="offline")
+
+    if sender_wallet.balance < spend_amount:
+        sender_wallet.balance = Decimal("0.00")
+    else:
+        sender_wallet.balance -= spend_amount
+
+    # Receiver online wallet
+    receiver_wallet = db.query(Wallet).filter(
+        Wallet.user_id == uuid.UUID(receiver_id),
+        Wallet.wallet_type == "online"
+    ).first()
+    if not receiver_wallet:
+        receiver_wallet = wallet_service.create_wallet(db, user_id=receiver_id, wallet_type="online")
+
+    receiver_wallet.balance += spend_amount
+    db.flush()
 
     payload = {
         "sender_id": sender_id,
@@ -126,7 +160,7 @@ def create_transaction(
         if receiver and receiver.fcm_token:
             notify_payment_received(
                 fcm_token=receiver.fcm_token,
-                amount=amount,
+                amount=amount_float,
                 sender_name=sender_name,
                 mode=mode,
             )
@@ -134,17 +168,17 @@ def create_transaction(
             receiver_name = receiver.full_name if receiver else "Recipient"
             notify_payment_sent(
                 fcm_token=sender.fcm_token,
-                amount=amount,
+                amount=amount_float,
                 receiver_name=receiver_name,
             )
             
         # Send Email Receipt for large transactions (>= ₹50,000)
-        if amount >= 50000 and sender and sender.email:
+        if amount_float >= 50000 and sender and sender.email:
             from app.services.email_service import send_large_transaction_receipt
             receiver_name = receiver.full_name if receiver else "Recipient"
             send_large_transaction_receipt(
                 to_email=sender.email,
-                amount=amount,
+                amount=amount_float,
                 recipient_name=receiver_name,
                 txn_hash=txn_hash,
                 mode=mode,

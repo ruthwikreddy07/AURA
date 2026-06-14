@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useColors } from "../context/ThemeContext";
-import { getUserTokens, issueToken } from "../api/api";
+import { getUserTokens, issueToken, getUserWallet } from "../api/api";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -22,8 +22,15 @@ export default function TokensScreen({ navigation }) {
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
-      const res = await getUserTokens(userId).catch(() => []);
-      setTokens(res);
+      if (!userId) return;
+      const wallets = await getUserWallet(userId).catch(() => []);
+      const offlineWallet = wallets.find(w => w.wallet_type === "offline");
+      if (offlineWallet) {
+        const res = await getUserTokens(offlineWallet.id).catch(() => []);
+        setTokens(res);
+      } else {
+        setTokens([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -39,8 +46,11 @@ export default function TokensScreen({ navigation }) {
     setIssuing(true);
     try {
       const userId = await SecureStore.getItemAsync("user_id");
+      const wallets = await getUserWallet(userId);
+      const offlineWallet = wallets.find(w => w.wallet_type === "offline");
+      if (!offlineWallet) throw new Error("Offline wallet not found. Please sync/reconnect.");
       await issueToken({
-        wallet_id: userId,
+        wallet_id: offlineWallet.id,
         token_value: Number(amount),
         expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), // 7 day expiry
       });

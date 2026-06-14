@@ -19,7 +19,13 @@ async function request(path, options = {}) {
   }
   
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Request failed");
+  if (!res.ok) {
+    let msg = 'Request failed';
+    if (typeof data.detail === 'string') msg = data.detail;
+    else if (Array.isArray(data.detail)) msg = data.detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+    else if (data.message) msg = data.message;
+    throw new Error(msg);
+  }
   return data;
 }
 
@@ -82,6 +88,9 @@ export const updateUserProfile = (data) =>
   request("/auth/me", { method: "PUT", body: JSON.stringify(data) });
 export const recoverPin = (data) =>
   request("/auth/recover-pin", { method: "POST", body: JSON.stringify(data) });
+export const submitKYC = (data) =>
+  request("/kyc/submit", { method: "POST", body: JSON.stringify(data) });
+
 
 /* ═══ WALLET ═══ */
 export const getUserWallet = (userId) =>
@@ -94,6 +103,8 @@ export const withdrawWallet = (data) =>
 /* ═══ BANK ═══ */
 export const linkBankAccount = (data) =>
   request("/bank/link", { method: "POST", body: JSON.stringify(data) });
+export const discoverBankAccounts = () =>
+  request("/bank/discover");
 export const getUserBankAccounts = (userId) =>
   requestWithOfflineVault(`/bank/user/${userId}`, `banks_${userId}`);
 export const removeBankAccount = (accountId) =>
@@ -109,6 +120,9 @@ export const issueToken = (data) =>
 
 /* ═══ TRANSACTIONS ═══ */
 export const getUserTransactions = (userId) => request(`/transactions/user/${userId}`);
+
+/* ═══ CONTACTS ═══ */
+export const searchAuraUsers = (phone) => request(`/contacts/search?phone=${encodeURIComponent(phone)}`);
 
 /* ═══ SYNC ═══ */
 export const getSyncQueue = (userId) => request(`/sync/queue/${userId}`);

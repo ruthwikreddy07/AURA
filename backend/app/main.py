@@ -42,6 +42,19 @@ app = FastAPI(
     debug=False,  # Must be False so global_exception_handler can add CORS headers
 )
 
+# Parse CORS origins dynamically
+raw_origins = settings.CORS_ORIGINS.strip()
+if raw_origins == "*":
+    ALLOWED_ORIGINS = ["*"]
+elif raw_origins.startswith("[") and raw_origins.endswith("]"):
+    import json
+    try:
+        ALLOWED_ORIGINS = json.loads(raw_origins)
+    except Exception:
+        ALLOWED_ORIGINS = [x.strip() for x in raw_origins.split(",") if x.strip()]
+else:
+    ALLOWED_ORIGINS = [x.strip() for x in raw_origins.split(",") if x.strip()]
+
 if settings.DEBUG:
     app.add_middleware(
         CORSMiddleware,
@@ -51,9 +64,7 @@ if settings.DEBUG:
         allow_headers=["*"],
     )
 else:
-    # Parse CORS origins dynamically
-    raw_origins = settings.CORS_ORIGINS.strip()
-    if raw_origins == "*":
+    if "*" in ALLOWED_ORIGINS:
         app.add_middleware(
             CORSMiddleware,
             allow_origin_regex="https?://.*",
@@ -62,18 +73,9 @@ else:
             allow_headers=["*"],
         )
     else:
-        if raw_origins.startswith("[") and raw_origins.endswith("]"):
-            import json
-            try:
-                cors_origins = json.loads(raw_origins)
-            except Exception:
-                cors_origins = [x.strip() for x in raw_origins.split(",") if x.strip()]
-        else:
-            cors_origins = [x.strip() for x in raw_origins.split(",") if x.strip()]
-            
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=cors_origins,
+            allow_origins=ALLOWED_ORIGINS,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -96,7 +98,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             headers["Access-Control-Allow-Origin"] = origin
             headers["Access-Control-Allow-Credentials"] = "true"
     else:
-        if origin in ALLOWED_ORIGINS:
+        if "*" in ALLOWED_ORIGINS or origin in ALLOWED_ORIGINS:
             headers["Access-Control-Allow-Origin"] = origin
             headers["Access-Control-Allow-Credentials"] = "true"
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Modal } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
-import { getUserProfile, updateUserProfile, setTransactionPin } from "../api/api";
+import { getUserProfile, updateUserProfile, setTransactionPin, submitKYC } from "../api/api";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -22,6 +22,31 @@ export default function ProfileScreen({ navigation }) {
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+
+  // KYC Verification states
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycType, setKycType] = useState("AADHAAR");
+  const [kycNumber, setKycNumber] = useState("");
+  const [kycLoading, setKycLoading] = useState(false);
+
+  const handleKycSubmit = async () => {
+    if (!kycNumber || kycNumber.trim().length === 0) return Alert.alert("Required", "Please enter document number.");
+    setKycLoading(true);
+    try {
+      const res = await submitKYC({
+        document_type: kycType,
+        document_number: kycNumber.trim()
+      });
+      setShowKycModal(false);
+      setKycNumber("");
+      loadProfile();
+      Alert.alert(res.status === "verified" ? "Success" : "Failed", res.message);
+    } catch (e) {
+      Alert.alert("Submission Failed", e.message);
+    } finally {
+      setKycLoading(false);
+    }
+  };
 
   // PIN states
   const [showPinForm, setShowPinForm] = useState(false);
@@ -118,33 +143,36 @@ export default function ProfileScreen({ navigation }) {
           <Text style={[styles.profileName, { color: c.text }]}>{profile.full_name}</Text>
           <Text style={[styles.profileEmail, { color: c.textSecondary }]}>{profile.email}</Text>
           <View style={styles.badgeRow}>
-            <Badge status={kycColor(profile.kyc_status)} text={`KYC: ${profile.kyc_status.toUpperCase()}`} size="sm" />
+            <Badge status={kycColor(profile.kyc_status || 'unverified')} text={`KYC: ${(profile.kyc_status || 'unverified').toUpperCase()}`} size="sm" />
             {profile.has_transaction_pin && <Badge status="success" text="PIN SET" size="sm" />}
           </View>
         </Card>
 
         {/* KYC Upgrade Banner */}
-        {profile.kyc_status === "pending" ? (
-          <Card style={[styles.infoCard, { backgroundColor: c.amber + "15", borderColor: c.amber + "40", marginBottom: 24 }]}>
-            <Text style={[styles.secLabel, { color: c.amber, marginBottom: 8 }]}>Standard Tier (₹5,000 Limit)</Text>
-            <Text style={{ color: c.textSecondary, fontSize: 13, marginBottom: 16 }}>
-              Upgrade your KYC to unlock the ₹1,00,000 Pro offline transaction limit by verifying your Aadhaar or PAN.
-            </Text>
-            <Button 
-              style={{ backgroundColor: c.amber }} 
-              onPress={() => {
-                Alert.alert("Notice", "KYC upgrades require backend verification and cannot be triggered from the client.");
-              }}
-            >
-              Verify Identity with Aadhaar
-            </Button>
-          </Card>
-        ) : (
+        {(profile.kyc_status || 'unverified') === "verified" ? (
           <Card style={[styles.infoCard, { backgroundColor: c.emerald + "15", borderColor: c.emerald + "40", marginBottom: 24 }]}>
             <Text style={[styles.secLabel, { color: c.emerald, marginBottom: 4 }]}>Pro Tier Unlocked</Text>
             <Text style={{ color: c.textSecondary, fontSize: 13 }}>
               Your offline issuance limit has been permanently upgraded to ₹1,00,000.
             </Text>
+          </Card>
+        ) : (profile.kyc_status || 'unverified') === "pending" ? (
+          <Card style={[styles.infoCard, { backgroundColor: c.amber + "15", borderColor: c.amber + "40", marginBottom: 24 }]}>
+            <Text style={[styles.secLabel, { color: c.amber, marginBottom: 8 }]}>Standard Tier (₹5,000 Limit)</Text>
+            <Text style={{ color: c.textSecondary, fontSize: 13, marginBottom: 16 }}>
+              Your Aadhaar/PAN verification is currently pending review.
+            </Text>
+            <Button disabled style={{ backgroundColor: c.amber + '50' }}>Verification Pending...</Button>
+          </Card>
+        ) : (
+          <Card style={[styles.infoCard, { backgroundColor: c.red + "10", borderColor: c.red + "30", marginBottom: 24 }]}>
+            <Text style={[styles.secLabel, { color: c.red, marginBottom: 8 }]}>Standard Tier (₹5,000 Limit)</Text>
+            <Text style={{ color: c.textSecondary, fontSize: 13, marginBottom: 16 }}>
+              Upgrade your KYC to unlock the ₹1,00,000 Pro offline transaction limit by verifying your Aadhaar or PAN.
+            </Text>
+            <Button style={{ backgroundColor: c.indigo }} onPress={() => setShowKycModal(true)}>
+              Verify Aadhaar / PAN
+            </Button>
           </Card>
         )}
 
@@ -214,6 +242,52 @@ export default function ProfileScreen({ navigation }) {
 
         </Card>
       </ScrollView>
+
+      {/* ═══ KYC VERIFICATION MODAL ═══ */}
+      <Modal visible={showKycModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.modalTitle, { color: c.text }]}>Identity Verification</Text>
+            <Text style={{ color: c.textSecondary, marginBottom: 16, fontSize: 13 }}>
+              Select document type and enter number to upgrade transaction limit.
+            </Text>
+            
+            <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+              <Button 
+                variant={kycType === "AADHAAR" ? "primary" : "secondary"} 
+                style={{ flex: 1 }} 
+                onPress={() => setKycType("AADHAAR")}
+              >
+                Aadhaar
+              </Button>
+              <Button 
+                variant={kycType === "PAN" ? "primary" : "secondary"} 
+                style={{ flex: 1 }} 
+                onPress={() => setKycType("PAN")}
+              >
+                PAN Card
+              </Button>
+            </View>
+
+            <Input 
+              label={`${kycType === "AADHAAR" ? "Aadhaar Number" : "PAN Card Number"}`} 
+              placeholder={kycType === "AADHAAR" ? "12-digit number" : "e.g. ABCDE1234F"} 
+              value={kycNumber} 
+              onChangeText={setKycNumber} 
+              autoCapitalize="characters"
+            />
+            
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <Button variant="secondary" style={{ flex: 1 }} onPress={() => { setShowKycModal(false); setKycNumber(""); }}>
+                Cancel
+              </Button>
+              <Button style={{ flex: 1 }} onPress={handleKycSubmit} disabled={kycLoading}>
+                {kycLoading ? "Verifying..." : "Submit"}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -240,4 +314,27 @@ const styles = StyleSheet.create({
   secLabel: { fontSize: 15, fontWeight: "600", marginBottom: 2 },
   btnSm: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   pinForm: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#8881" },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
 });

@@ -155,6 +155,12 @@ def complete_user_profile(
         is_active=True
     )
     db.add(device)
+    
+    # Auto-create online/offline wallets for the user
+    from app.services import wallet_service
+    wallet_service.create_wallet(db, user_id=str(new_user.id), wallet_type="online")
+    wallet_service.create_wallet(db, user_id=str(new_user.id), wallet_type="offline")
+
     db.commit()
     db.refresh(new_user)
     

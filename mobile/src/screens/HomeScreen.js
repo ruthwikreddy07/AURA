@@ -37,18 +37,25 @@ export default function HomeScreen({ navigation }) {
       const userId = await SecureStore.getItemAsync("user_id");
       if (!userId) return navigation.replace("Auth");
 
-      const [pRes, wRes, tRes, tokRes, syncRes] = await Promise.all([
+      const [pRes, wRes, tRes, syncRes] = await Promise.all([
         getUserProfile().catch(() => null),
         getUserWallet(userId).catch(() => []),
         getUserTransactions(userId).catch(() => []),
-        getUserTokens(userId).catch(() => []),
         OfflineOutboxService.getStatus().catch(() => ({ pending: 0 }))
       ]);
       setProfile(pRes);
-      setWallets(Array.isArray(wRes) ? wRes : [wRes].filter(Boolean));
+      const walletsList = Array.isArray(wRes) ? wRes : [wRes].filter(Boolean);
+      setWallets(walletsList);
       setTxs((tRes || []).slice(0, 5));
-      setTokens(Array.isArray(tokRes) ? tokRes : []);
       setSyncStatus(syncRes);
+
+      const offlineWallet = walletsList.find(w => w.wallet_type === "offline");
+      if (offlineWallet) {
+        const tokRes = await getUserTokens(offlineWallet.id).catch(() => []);
+        setTokens(tokRes);
+      } else {
+        setTokens([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {

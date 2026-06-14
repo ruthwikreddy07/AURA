@@ -62,9 +62,10 @@ export default function OverviewPage() {
         setWallets(w);
         setTransactions(t);
 
-        // Fetch tokens from first wallet
+        // Fetch tokens from offline wallet
         if (w.length > 0) {
-          const tkns = await getWalletTokens(w[0].id);
+          const offlineWallet = w.find(x => x.wallet_type === "offline") || w[0];
+          const tkns = await getWalletTokens(offlineWallet.id);
           setTokens(tkns || []);
         }
       } catch (err) {

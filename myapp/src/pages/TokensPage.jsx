@@ -30,8 +30,9 @@ export default function TokensPage() {
       .then(data => {
         setWallets(data);
         if (data.length > 0) {
-          localStorage.setItem("wallet_id", data[0].id);
-          return getWalletTokens(data[0].id);
+          const offlineWallet = data.find(x => x.wallet_type === "offline") || data[0];
+          localStorage.setItem("wallet_id", offlineWallet.id);
+          return getWalletTokens(offlineWallet.id);
         }
         return [];
       })
@@ -49,8 +50,9 @@ export default function TokensPage() {
       const expDate = new Date();
       expDate.setDate(expDate.getDate() + 7); // Default 7-day expiry
       
+      const offlineWallet = wallets.find(x => x.wallet_type === "offline") || wallets[0];
       await issueToken({
-        wallet_id: wallets[0].id,
+        wallet_id: offlineWallet.id,
         token_value: Number(issueAmount),
         expires_at: expDate.toISOString()
       });
@@ -60,7 +62,7 @@ export default function TokensPage() {
       setIssueAmount("");
       
       // Refresh token registry
-      const newTokens = await getWalletTokens(wallets[0].id);
+      const newTokens = await getWalletTokens(offlineWallet.id);
       setTokens(newTokens);
     } catch(err) {
       console.error("Token issue failed:", err);

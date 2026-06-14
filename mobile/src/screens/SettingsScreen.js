@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import * as Crypto from "expo-crypto";
 
 import { useTheme, useColors } from "../context/ThemeContext";
 import { setTransactionPin, updateUserProfile, getUserProfile } from "../api/api";
@@ -43,8 +44,10 @@ export default function SettingsScreen({ navigation }) {
         text: "Sign Out", style: "destructive",
         onPress: async () => {
           await SecureStore.deleteItemAsync("auth_token");
+          await SecureStore.deleteItemAsync("refresh_token");
           await SecureStore.deleteItemAsync("user_id");
           await SecureStore.deleteItemAsync("app_lock_enabled");
+          await SecureStore.deleteItemAsync("app_lock_pin");
           navigation.replace("Auth");
         },
       },
@@ -57,7 +60,8 @@ export default function SettingsScreen({ navigation }) {
     setSettingPin(true);
     try {
       await setTransactionPin(newPin);
-      await SecureStore.setItemAsync("app_lock_pin", newPin);
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, newPin);
+      await SecureStore.setItemAsync("app_lock_pin", hash);
       setShowPinForm(false);
       setNewPin("");
       setConfirmPin("");

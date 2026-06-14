@@ -6,7 +6,7 @@ import Svg, { Rect, Line, Text as SvgText, G } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useColors } from "../context/ThemeContext";
-import { getUserTransactions, getUserTokens } from "../api/api";
+import { getUserTransactions, getUserTokens, getUserWallet } from "../api/api";
 import Card from "../components/Card";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -25,12 +25,20 @@ export default function AnalyticsScreen() {
   const loadData = async () => {
     try {
       const userId = await SecureStore.getItemAsync("user_id");
-      const [txRes, tokRes] = await Promise.all([
+      if (!userId) return;
+      const [txRes, wallets] = await Promise.all([
         getUserTransactions(userId).catch(() => []),
-        getUserTokens(userId).catch(() => []),
+        getUserWallet(userId).catch(() => []),
       ]);
       setTransactions(Array.isArray(txRes) ? txRes : []);
-      setTokens(Array.isArray(tokRes) ? tokRes : []);
+      
+      const offlineWallet = wallets.find(w => w.wallet_type === "offline");
+      if (offlineWallet) {
+        const tokRes = await getUserTokens(offlineWallet.id).catch(() => []);
+        setTokens(Array.isArray(tokRes) ? tokRes : []);
+      } else {
+        setTokens([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {

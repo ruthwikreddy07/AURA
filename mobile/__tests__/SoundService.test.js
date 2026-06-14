@@ -24,7 +24,7 @@ jest.mock('react-native', () => ({
 
 // Import the class internals via the module
 // SoundService exports a singleton, so we import it then access internal methods
-import soundService from '../../src/services/SoundService';
+import soundService from '../src/services/SoundService';
 
 // ── stringToBits / bitsToString roundtrip ─────────────────────────────────────
 

@@ -6,11 +6,15 @@ from skl2onnx.common.data_types import FloatTensorType
 
 # 1. Generate Synthetic Data
 np.random.seed(42)
-n_samples = 5000
+n_samples = 8000
 
-# Features: amount, mode_encoded, hour_of_day
-# mode mapping: 0: QR, 1: BLE, 2: SOUND, 3: LIGHT, 4: NFC
-amounts = np.random.exponential(scale=5000, size=n_samples)
+# Mix of typical exponential distribution and uniform high-value transactions
+half_n = n_samples // 2
+amounts_low = np.random.exponential(scale=5000, size=half_n)
+amounts_high = np.random.uniform(5000, 120000, size=n_samples - half_n)
+amounts = np.concatenate([amounts_low, amounts_high])
+np.random.shuffle(amounts)
+
 modes = np.random.randint(0, 5, size=n_samples)
 hours = np.random.randint(0, 24, size=n_samples)
 
@@ -36,7 +40,7 @@ X = np.column_stack((amounts, modes, hours)).astype(np.float32)
 y = labels
 
 # 2. Train Model
-model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
+model = RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42)
 model.fit(X, y)
 
 # 3. Convert to ONNX
@@ -49,5 +53,5 @@ output_path = "backend/app/ai/risk_model.onnx"
 with open(output_path, "wb") as f:
     f.write(onnx_model.SerializeToString())
 
-print(f"✅ ONNX Model successfully trained and saved to {output_path}")
+print(f"ONNX Model successfully trained and saved to {output_path}")
 print(f"Total samples: {n_samples}, Fraud cases: {sum(y)}")

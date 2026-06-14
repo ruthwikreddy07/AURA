@@ -18,6 +18,7 @@ STMTS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS device_public_key VARCHAR(2048)",
     "ALTER TABLE users ALTER COLUMN email DROP NOT NULL",
     "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
 
     # ═══ TOKENS ═══
     "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS remaining_value NUMERIC(18,2) NOT NULL DEFAULT 0",

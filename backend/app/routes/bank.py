@@ -66,6 +66,40 @@ def link_bank_account(
     )
 
 
+@router.get("/discover")
+def discover_bank_accounts(current_user: User = Depends(get_current_user)):
+    """
+    Simulate UPI-style bank account discovery using the user's phone number.
+    """
+    phone = current_user.phone_number or "+919999999999"
+    last_four = phone[-4:] if len(phone) >= 4 else "1234"
+    
+    mock_accounts = [
+        {
+            "bank_name": "HDFC Bank",
+            "account_name": current_user.full_name,
+            "account_number_masked": f"•••• •••• {last_four}",
+            "ifsc_code": "HDFC0000060",
+            "upi_id": f"{phone.replace('+', '')}@hdfcbank",
+        },
+        {
+            "bank_name": "State Bank of India",
+            "account_name": current_user.full_name,
+            "account_number_masked": f"•••• •••• {last_four}",
+            "ifsc_code": "SBIN0000692",
+            "upi_id": f"{phone.replace('+', '')}@sbi",
+        },
+        {
+            "bank_name": "ICICI Bank",
+            "account_name": current_user.full_name,
+            "account_number_masked": f"•••• •••• {last_four}",
+            "ifsc_code": "ICIC0000004",
+            "upi_id": f"{phone.replace('+', '')}@icici",
+        }
+    ]
+    return mock_accounts
+
+
 @router.get("/user/{user_id}", response_model=list[BankAccountResponse])
 def get_user_bank_accounts(
     user_id: str,

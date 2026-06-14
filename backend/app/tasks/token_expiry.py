@@ -47,21 +47,40 @@ def process_expired_tokens(db: Session | None = None) -> dict:
             token.status = "expired"
             token.spent_at = now
 
-            # 2. Refund remaining_value to wallet
+            # 2. Refund remaining_value from offline to online wallet
             if remaining > 0:
-                wallet = (
+                offline_wallet = (
                     db.query(Wallet)
                     .filter(Wallet.id == token.wallet_id)
                     .first()
                 )
-                if wallet:
-                    wallet.balance += remaining
+                if offline_wallet:
+                    # Deduct from offline wallet
+                    if offline_wallet.balance < remaining:
+                        offline_wallet.balance = Decimal("0.00")
+                    else:
+                        offline_wallet.balance -= remaining
+
+                    # Find online wallet for the same user
+                    online_wallet = (
+                        db.query(Wallet)
+                        .filter(
+                            Wallet.user_id == offline_wallet.user_id,
+                            Wallet.wallet_type == "online"
+                        )
+                        .first()
+                    )
+                    if not online_wallet:
+                        from app.services import wallet_service
+                        online_wallet = wallet_service.create_wallet(db, user_id=str(offline_wallet.user_id), wallet_type="online")
+
+                    online_wallet.balance += remaining
                     total_refunded += remaining
 
                     # 3. Create auto-refund transaction record
                     refund_tx = Transaction(
-                        sender_id=wallet.user_id,
-                        receiver_id=wallet.user_id,
+                        sender_id=offline_wallet.user_id,
+                        receiver_id=offline_wallet.user_id,
                         token_id=token.id,
                         mode="system",
                         risk_score=0.0,

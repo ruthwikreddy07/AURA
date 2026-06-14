@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "../context/ThemeContext";
-import { getUserBankAccounts, linkBankAccount, removeBankAccount, setPrimaryBank } from "../api/api";
+import { getUserBankAccounts, linkBankAccount, removeBankAccount, setPrimaryBank, discoverBankAccounts } from "../api/api";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -24,6 +24,43 @@ export default function BankScreen({ navigation }) {
   const [accountNumber, setAccountNumber] = useState("");
   const [ifscCode, setIfscCode] = useState("");
   const [upiId, setUpiId] = useState("");
+
+  // Auto-discovery
+  const [discovered, setDiscovered] = useState([]);
+  const [discovering, setDiscovering] = useState(false);
+
+  const handleDiscover = async () => {
+    setDiscovering(true);
+    try {
+      const res = await discoverBankAccounts();
+      setDiscovered(res);
+    } catch (e) {
+      Alert.alert("Discovery Failed", e.message);
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handleLinkDiscovered = async (bank) => {
+    setLinking(true);
+    try {
+      await linkBankAccount({
+        bank_name: bank.bank_name,
+        account_name: bank.account_name,
+        account_number_masked: bank.account_number_masked,
+        ifsc_code: bank.ifsc_code,
+        upi_id: bank.upi_id,
+      });
+      setShowLinkModal(false);
+      setDiscovered([]);
+      loadData();
+      Alert.alert("Success", `${bank.bank_name} linked successfully.`);
+    } catch (e) {
+      Alert.alert("Link Failed", e.message);
+    } finally {
+      setLinking(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -154,7 +191,36 @@ export default function BankScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.modalTitle, { color: c.text }]}>Link Bank Account</Text>
-            <ScrollView style={{ maxHeight: 400 }}>
+            <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
+              {discovered.length > 0 ? (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ color: c.textSecondary, fontWeight: "700", marginBottom: 10, fontSize: 12, textTransform: "uppercase" }}>Discovered Accounts</Text>
+                  {discovered.map((bank, index) => (
+                    <TouchableOpacity 
+                      key={index}
+                      style={{ padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.indigo + "40", backgroundColor: c.indigo + "08", marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                      onPress={() => handleLinkDiscovered(bank)}
+                    >
+                      <View>
+                        <Text style={{ color: c.text, fontWeight: "700" }}>{bank.bank_name}</Text>
+                        <Text style={{ color: c.textSecondary, fontSize: 12 }}>{bank.account_number_masked}</Text>
+                      </View>
+                      <Text style={{ color: c.indigo, fontWeight: "700", fontSize: 13 }}>+ Link</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Button 
+                  variant="secondary" 
+                  onPress={handleDiscover} 
+                  disabled={discovering} 
+                  style={{ marginBottom: 16, borderColor: c.indigo + "40" }}
+                >
+                  {discovering ? "Discovering Accounts..." : "⚡ Auto-Discover via Phone"}
+                </Button>
+              )}
+
+              <Text style={{ color: c.textSecondary, fontWeight: "700", marginBottom: 10, fontSize: 12, textTransform: "uppercase" }}>Or Enter Details Manually</Text>
               <Input label="Bank Name" placeholder="e.g. HDFC Bank" value={bankName} onChangeText={setBankName} />
               <Input label="Account Holder Name" placeholder="Full name" value={accountName} onChangeText={setAccountName} />
               <Input label="Account Number" placeholder="Account number" value={accountNumber} onChangeText={setAccountNumber} keyboardType="numeric" />

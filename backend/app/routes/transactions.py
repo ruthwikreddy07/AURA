@@ -26,6 +26,7 @@ class CreateTransactionRequest(BaseModel):
     token_id: str
     mode: str
     risk_score: float
+    amount: float | None = None
 
 
 class TransactionResponse(BaseModel):
@@ -116,6 +117,7 @@ def create_transaction(payload: CreateTransactionRequest, db: Session = Depends(
             token_id=payload.token_id,
             mode=payload.mode,
             risk_score=payload.risk_score,
+            amount=payload.amount,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

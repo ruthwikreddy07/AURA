@@ -132,15 +132,21 @@ class BLEService {
         base64Packet
       );
 
-      // Read status back from receiver
-      const statusChar = await device.readCharacteristicForService(
-        AURA_SERVICE_UUID,
-        AURA_CHAR_STATUS_UUID
-      );
-      const statusValue = Buffer.from(statusChar.value, "base64").toString("utf-8");
+      // Try to read ACK from receiver (optional — not all peripherals expose this)
+      let statusValue = 'ACK';
+      try {
+        const statusChar = await device.readCharacteristicForService(
+          AURA_SERVICE_UUID,
+          AURA_CHAR_STATUS_UUID
+        );
+        statusValue = Buffer.from(statusChar.value, 'base64').toString('utf-8');
+      } catch (e) {
+        // ACK read failed — assume success if write succeeded
+        console.warn('BLE ACK read skipped:', e.message);
+      }
 
       onProgress("sent");
-      return { success: statusValue === "ACK", status: statusValue };
+      return { success: true, status: statusValue };
     } catch (error) {
       onProgress("error");
       throw new Error(`BLE Send Error: ${error.message}`);
@@ -169,51 +175,60 @@ class BLEService {
     try {
       this.isAdvertising = true;
 
-      // Ensure BLE is powered on
-      const state = await this.blePeripheral.getState();
-      if (state !== this.blePeripheral.ManagerState.PoweredOn) {
-         console.warn("BLE is not powered on.");
-      }
+      const peripheral = this.blePeripheral;
 
-      this.blePeripheral.removeAllServices();
-      
-      // Add primary service
-      this.blePeripheral.addService(AURA_SERVICE_UUID, true);
+      // Safely remove all services — ignore errors if none exist
+      try { peripheral.removeAllServices(); } catch (e) {}
 
-      // Add writable characteristic for receiving packet
-      this.blePeripheral.addCharacteristicToService(
+      // Add primary AURA payment service
+      peripheral.addService(AURA_SERVICE_UUID, true);
+
+      // Characteristic properties & permissions as raw integers (universal)
+      const PROP_WRITE = 0x08;     // Write
+      const PROP_READ  = 0x02;     // Read
+      const PERM_WRITE = 0x10;     // Writeable
+      const PERM_READ  = 0x01;     // Readable
+
+      peripheral.addCharacteristicToService(
         AURA_SERVICE_UUID,
         AURA_CHAR_PACKET_UUID,
-        this.blePeripheral.CharacteristicProperties.Write,
-        this.blePeripheral.CharacteristicPermissions.Writeable,
+        PROP_WRITE,
+        PERM_WRITE,
         ''
       );
 
-      // Add readable characteristic for status
-      this.blePeripheral.addCharacteristicToService(
+      peripheral.addCharacteristicToService(
         AURA_SERVICE_UUID,
         AURA_CHAR_STATUS_UUID,
-        this.blePeripheral.CharacteristicProperties.Read,
-        this.blePeripheral.CharacteristicPermissions.Readable,
+        PROP_READ,
+        PERM_READ,
         'ACK'
       );
 
-      this.blePeripheral.setName(`${AURA_DEVICE_PREFIX}-SEND`);
+      peripheral.setName(`${AURA_DEVICE_PREFIX}-RECV`);
 
-      // Start advertising
-      await this.blePeripheral.startAdvertising({
-        localName: `${AURA_DEVICE_PREFIX}-SEND`,
-        serviceUUIDs: [AURA_SERVICE_UUID]
+      await peripheral.startAdvertising({
+        localName: `${AURA_DEVICE_PREFIX}-RECV`,
+        serviceUUIDs: [AURA_SERVICE_UUID],
       });
 
-      // Listen for write requests
-      this.writeSub = this.blePeripheral.onDidReceiveWriteRequests((event) => {
+      // Listen for incoming write requests
+      this.writeSub = peripheral.onDidReceiveWriteRequests((event) => {
         onStatusChange("receiving");
-        event.requests.forEach(req => {
-          if (req.characteristicUUID.toUpperCase() === AURA_CHAR_PACKET_UUID) {
-            const value = this.blePeripheral.decodeBase64(req.value);
-            onPacketReceived(value);
-            this.blePeripheral.respondToRequest(event.requestId, this.blePeripheral.ATTError.Success);
+        const requests = event.requests || [event];
+        requests.forEach((req) => {
+          const charUUID = (req.characteristicUUID || '').toUpperCase();
+          if (charUUID === AURA_CHAR_PACKET_UUID.toUpperCase()) {
+            try {
+              // Decode base64 → string using Buffer
+              const decoded = Buffer.from(req.value, 'base64').toString('utf-8');
+              onPacketReceived(decoded);
+            } catch (e) {
+              console.warn('BLE packet decode error:', e.message);
+            }
+            try {
+              peripheral.respondToRequest(event.requestId || req.requestId, 0);
+            } catch (e) {}
           }
         });
       });

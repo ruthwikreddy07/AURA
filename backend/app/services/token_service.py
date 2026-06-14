@@ -16,6 +16,30 @@ def issue_token(
 ) -> Token:
     if expires_at <= datetime.now(timezone.utc):
         raise ValueError("Token expiration must be in the future")
+
+    # Find offline wallet
+    from app.models.wallet import Wallet
+    offline_wallet = db.query(Wallet).filter(Wallet.id == uuid.UUID(wallet_id)).first()
+    if not offline_wallet:
+        raise ValueError("Offline wallet not found")
+
+    # Find online wallet for the same user
+    online_wallet = db.query(Wallet).filter(
+        Wallet.user_id == offline_wallet.user_id,
+        Wallet.wallet_type == "online"
+    ).first()
+    if not online_wallet:
+        raise ValueError("Online wallet not found")
+
+    # Check balance
+    dec_value = Decimal(str(token_value))
+    if online_wallet.balance < dec_value:
+        raise ValueError("Insufficient online balance to issue token")
+
+    # Deduct and credit
+    online_wallet.balance -= dec_value
+    offline_wallet.balance += dec_value
+
     signed = generate_signed_token(
         wallet_id=wallet_id,
         token_value=token_value,
@@ -23,16 +47,16 @@ def issue_token(
     )
 
     token = Token(
-    wallet_id=uuid.UUID(wallet_id),
-    token_value=token_value,
-    remaining_value=token_value,
-    status="active",
-    expires_at=expires_at,
-    sync_status="pending",
-    nonce=signed["payload"]["nonce"],
-    payload=signed["payload"],   # NEW LINE
-    signature=signed["signature"],
-    hash=signed["hash"],
+        wallet_id=uuid.UUID(wallet_id),
+        token_value=token_value,
+        remaining_value=token_value,
+        status="active",
+        expires_at=expires_at,
+        sync_status="pending",
+        nonce=signed["payload"]["nonce"],
+        payload=signed["payload"],   # NEW LINE
+        signature=signed["signature"],
+        hash=signed["hash"],
     )
     db.add(token)
     db.flush()

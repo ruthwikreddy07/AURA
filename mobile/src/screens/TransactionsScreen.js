@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,30 +30,31 @@ export default function TransactionsScreen({ navigation }) {
 
   useEffect(() => { loadData(); }, []);
 
-  const renderItem = ({ item }) => {
-    const isSend = item.tx_type === "offline_send" || item.tx_type === "standard";
+  const renderItem = useCallback(({ item }) => {
+    const isSend = item.tx_type === "offline_send" || item.tx_type === "standard" || item.tx_type === "online_send";
+    const statusVal = item.status || 'pending';
     return (
       <Card style={styles.card}>
         <View style={styles.row}>
-          <View style={[styles.iconBox, { backgroundColor: isSend ? c.indigo + "15" : c.emerald + "15" }]}>
-            <Text style={{ fontSize: 16 }}>{isSend ? "↗" : "↙"}</Text>
+          <View style={[styles.iconBox, { backgroundColor: (isSend ? c.red : c.emerald) + "15" }]}>
+            <Ionicons name={isSend ? "arrow-up" : "arrow-down"} size={18} color={isSend ? c.red : c.emerald} />
           </View>
           <View style={styles.info}>
-            <Text style={[styles.title, { color: c.text }]}>
-               {isSend ? (item.receiver_id === "external" ? "Online Transfer" : "Sent Offline Payment") : "Received Payment"}
+            <Text style={[styles.txTitle, { color: c.text }]}>
+              {isSend ? "Sent Payment" : "Received Payment"}
             </Text>
-            <Text style={[styles.date, { color: c.textMuted }]}>{new Date(item.created_at).toLocaleString()}</Text>
+            <Text style={[styles.date, { color: c.textMuted }]}>{new Date(item.created_at).toLocaleString('en-IN')}</Text>
           </View>
           <View style={styles.amtBox}>
-            <Text style={[styles.amt, { color: isSend ? c.text : c.emerald }]}>
-              {isSend ? "-" : "+"}₹{Number(item.amount).toLocaleString()}
+            <Text style={[styles.amt, { color: isSend ? c.red : c.emerald }]}>
+              {isSend ? "-" : "+"}₹{Number(item.amount || 0).toLocaleString('en-IN')}
             </Text>
-            <Badge status={item.status === "settled" ? "success" : "warning"} text={item.status.toUpperCase()} size="sm" />
+            <Badge status={statusVal === "settled" ? "success" : "warning"} text={statusVal.toUpperCase()} size="sm" />
           </View>
         </View>
       </Card>
     );
-  };
+  }, [c]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]}>
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   info: { flex: 1 },
-  title: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  txTitle: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
   date: { fontSize: 12, fontWeight: "500" },
   
   amtBox: { alignItems: "flex-end", gap: 4 },

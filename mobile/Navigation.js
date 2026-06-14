@@ -35,19 +35,28 @@ const Tab = createBottomTabNavigator();
 const MoreStack = createNativeStackNavigator();
 
 function MoreNavigator() {
+  const c = useColors();
   return (
-    <MoreStack.Navigator screenOptions={{ headerShown: false }}>
+    <MoreStack.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: route.name !== 'MoreMenu',
+        headerStyle: { backgroundColor: c.card },
+        headerTintColor: c.indigo,
+        headerTitleStyle: { color: c.text, fontWeight: '700', fontSize: 18 },
+        headerShadowVisible: false,
+      })}
+    >
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} />
-      <MoreStack.Screen name="ScanWebQR" component={ScanWebQRScreen} />
-      <MoreStack.Screen name="Wallet" component={WalletScreen} />
-      <MoreStack.Screen name="Tokens" component={TokensScreen} />
-      <MoreStack.Screen name="ModeControl" component={ModeControlScreen} />
-      <MoreStack.Screen name="SyncStatus" component={SyncScreen} />
-      <MoreStack.Screen name="Analytics" component={AnalyticsScreen} />
-      <MoreStack.Screen name="Settings" component={SettingsScreen} />
-      <MoreStack.Screen name="BankAccounts" component={BankScreen} />
-      <MoreStack.Screen name="Profile" component={ProfileScreen} />
-      <MoreStack.Screen name="Notifications" component={NotificationsScreen} />
+      <MoreStack.Screen name="ScanWebQR" component={ScanWebQRScreen} options={{ title: 'Web Login QR' }} />
+      <MoreStack.Screen name="Wallet" component={WalletScreen} options={{ title: 'Wallet' }} />
+      <MoreStack.Screen name="Tokens" component={TokensScreen} options={{ title: 'Offline Tokens' }} />
+      <MoreStack.Screen name="ModeControl" component={ModeControlScreen} options={{ title: 'Mode Control' }} />
+      <MoreStack.Screen name="SyncStatus" component={SyncScreen} options={{ title: 'Sync Status' }} />
+      <MoreStack.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Analytics' }} />
+      <MoreStack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <MoreStack.Screen name="BankAccounts" component={BankScreen} options={{ title: 'Bank Accounts' }} />
+      <MoreStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile & KYC' }} />
+      <MoreStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
     </MoreStack.Navigator>
   );
 }
